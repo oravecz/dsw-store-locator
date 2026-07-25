@@ -1,0 +1,25 @@
+{
+  "name": "DSW Campaign Field Guide",
+  "short_name": "DSW Field Guide",
+  "description": "Find DSW stores and track campaign issues in the field.",
+  "theme_color": "#17120f",
+  "background_color": "#f5f0e8",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/dsw-store-locator/",
+  "scope": "/dsw-store-locator/",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
