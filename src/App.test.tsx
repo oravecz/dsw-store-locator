@@ -106,4 +106,53 @@ describe("campaign store selection", () => {
     },
     15_000,
   );
+
+  // @lat: [[dsw-store-locator#Campaign Manager#Manager Screen]]
+  it("opens campaign management from the header and exposes campaign actions", () => {
+    render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open campaign manager" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Campaign manager" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Current")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "493 stores selected" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Edit campaign" }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close campaign form" }),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete 35th Birthday" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Delete 35th Birthday?" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Return to stores" }),
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Campaign manager" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Store directory" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open campaign manager" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add campaign" }));
+    expect(
+      screen.getByRole("heading", { name: "Add campaign" }),
+    ).toBeInTheDocument();
+  });
 });

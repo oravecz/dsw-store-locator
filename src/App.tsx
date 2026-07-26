@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import {
   type FormEvent,
-  type PointerEvent,
   type TouchEvent,
   useEffect,
   useMemo,
@@ -34,6 +33,7 @@ import {
   CampaignFormModal,
   type CampaignDraft,
 } from "./components/CampaignFormModal";
+import { CampaignManager } from "./components/CampaignManager";
 import storesData from "./data/stores.json";
 import {
   dateInputValue,
@@ -43,7 +43,6 @@ import {
   saveCampaigns,
   selectInitialCampaign,
 } from "./lib/campaigns";
-import { isCampaignDrawerPull } from "./lib/campaign-drawer";
 import { nearestStores } from "./lib/distance";
 import {
   buildIssueExport,
@@ -100,35 +99,6 @@ function BrandLockup({ className = "" }: { className?: string }) {
   );
 }
 
-function CampaignOptionGroups({
-  groups,
-}: {
-  groups: ReturnType<typeof groupCampaigns>;
-}) {
-  return (
-    <>
-      {groups.currentAndUpcoming.length > 0 && (
-        <optgroup label="Current & upcoming">
-          {groups.currentAndUpcoming.map((campaign) => (
-            <option key={campaign.id} value={campaign.id}>
-              {campaign.name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {groups.archived.length > 0 && (
-        <optgroup label="Archived">
-          {groups.archived.map((campaign) => (
-            <option key={campaign.id} value={campaign.id}>
-              {campaign.name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-    </>
-  );
-}
-
 const statusOrder: Record<IssueStatus, number> = {
   New: 0,
   Reported: 1,
@@ -175,14 +145,13 @@ function App() {
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(
     null,
   );
-  const [campaignDeleteOpen, setCampaignDeleteOpen] = useState(false);
-  const [campaignPickerRevealed, setCampaignPickerRevealed] = useState(false);
+  const [campaignDeleteId, setCampaignDeleteId] = useState<string | null>(null);
+  const [campaignManagerOpen, setCampaignManagerOpen] = useState(false);
   const [swipeBackFeedback, setSwipeBackFeedback] = useState<
     (EdgeBackSwipeFeedback & { y: number }) | null
   >(null);
   const detailPanelRef = useRef<HTMLElement>(null);
   const swipeStartRef = useRef<SwipePoint | null>(null);
-  const campaignPullStartRef = useRef<SwipePoint | null>(null);
 
   useEffect(() => {
     const onBeforeInstall = (event: Event) => {
@@ -206,13 +175,13 @@ function App() {
   }, [campaigns]);
 
   useEffect(() => {
-    if (!campaignFormOpen && !campaignDeleteOpen) return;
+    if (!campaignFormOpen && !campaignDeleteId) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [campaignDeleteOpen, campaignFormOpen]);
+  }, [campaignDeleteId, campaignFormOpen]);
 
   useEffect(() => {
     setStoreHistory([]);
@@ -220,22 +189,14 @@ function App() {
     setAttentionFilterOpen(false);
     setEditingIssueId(null);
     setFormOpen(false);
-    setCampaignDeleteOpen(false);
-    setCampaignPickerRevealed(false);
+    setCampaignDeleteId(null);
     setCampaignFormOpen(false);
     setEditingCampaignId(null);
   }, [campaignId]);
 
-  useEffect(() => {
-    if (!campaignPickerRevealed) return;
-    const hideOnScroll = () => {
-      if (window.scrollY > 4) setCampaignPickerRevealed(false);
-    };
-    window.addEventListener("scroll", hideOnScroll, { passive: true });
-    return () => window.removeEventListener("scroll", hideOnScroll);
-  }, [campaignPickerRevealed]);
-
   const campaign = campaigns.find((item) => item.id === campaignId) ?? null;
+  const campaignPendingDelete =
+    campaigns.find((item) => item.id === campaignDeleteId) ?? null;
   const campaignFormCampaign = editingCampaignId
     ? campaigns.find((item) => item.id === editingCampaignId) ?? null
     : null;
@@ -441,7 +402,6 @@ function App() {
 
   const openCampaignForm = (campaignToEdit?: Campaign) => {
     setEditingCampaignId(campaignToEdit?.id ?? null);
-    setCampaignPickerRevealed(false);
     setCampaignFormOpen(true);
   };
 
@@ -477,18 +437,28 @@ function App() {
   };
 
   const confirmDeleteCampaign = () => {
-    if (!campaign) return;
+    if (!campaignPendingDelete) return;
 
-    const remaining = campaigns.filter((item) => item.id !== campaign.id);
+    const remaining = campaigns.filter(
+      (item) => item.id !== campaignPendingDelete.id,
+    );
     setCampaigns(remaining);
     setIssues((current) =>
-      current.filter((issue) => issue.campaignId !== campaign.id),
+      current.filter(
+        (issue) => issue.campaignId !== campaignPendingDelete.id,
+      ),
     );
-    setCampaignDeleteOpen(false);
-    setCampaignId(selectInitialCampaign(remaining, today));
+    setCampaignDeleteId(null);
+    if (campaignPendingDelete.id === campaignId) {
+      setCampaignId(selectInitialCampaign(remaining, today));
+    }
   };
 
-  const campaignIssueCount = campaign ? allCampaignIssues.length : 0;
+  const campaignIssueCount = campaignPendingDelete
+    ? issues.filter(
+        (issue) => issue.campaignId === campaignPendingDelete.id,
+      ).length
+    : 0;
 
   const toggleAttentionFilter = (key: string) => {
     setSelectedAttentionKeys((current) =>
@@ -524,110 +494,43 @@ function App() {
     setInstallPrompt(null);
   };
 
-  const handleCampaignPullStart = (event: PointerEvent<HTMLDivElement>) => {
-    if (
-      !campaign ||
-      campaignPickerRevealed ||
-      campaignFormOpen ||
-      campaignDeleteOpen ||
-      window.scrollY > 1
-    ) {
-      campaignPullStartRef.current = null;
-      return;
-    }
-    campaignPullStartRef.current = { x: event.clientX, y: event.clientY };
-  };
-
-  const handleCampaignPullEnd = (event: PointerEvent<HTMLDivElement>) => {
-    const start = campaignPullStartRef.current;
-    campaignPullStartRef.current = null;
-    if (
-      start &&
-      isCampaignDrawerPull(
-        start,
-        { x: event.clientX, y: event.clientY },
-        window.scrollY,
-      )
-    ) {
-      setCampaignPickerRevealed(true);
-    }
+  const selectCampaignFromManager = (selectedCampaign: Campaign) => {
+    setCampaignId(selectedCampaign.id);
+    setCampaignManagerOpen(false);
   };
 
   return (
-    <div
-      className="app-shell"
-      onPointerDown={handleCampaignPullStart}
-      onPointerUp={handleCampaignPullEnd}
-      onPointerCancel={() => {
-        campaignPullStartRef.current = null;
-      }}
-    >
+    <div className="app-shell" id="top">
       <header className="app-header">
         <a className="brand" href="#top" aria-label="DSW Activations">
           <BrandLockup className="header-lockup" />
         </a>
 
-        {installPrompt && (
-          <div className="header-actions">
+        <div className="header-actions">
+          <button
+            className={`campaign-manager-button ${
+              campaignManagerOpen ? "active" : ""
+            }`}
+            type="button"
+            onClick={() => setCampaignManagerOpen((current) => !current)}
+            aria-label={
+              campaignManagerOpen
+                ? "Close campaign manager"
+                : "Open campaign manager"
+            }
+            aria-pressed={campaignManagerOpen}
+          >
+            <Flag size={18} />
+            <span>Campaigns</span>
+          </button>
+          {installPrompt && (
             <button className="install-button" type="button" onClick={installApp}>
               <Smartphone size={16} />
               Install
             </button>
-          </div>
-        )}
-      </header>
-
-      <section
-        className={`campaign-strip ${
-          campaign ? "campaign-strip-collapsible" : ""
-        } ${campaignPickerRevealed ? "revealed" : ""}`}
-        id="top"
-        onFocusCapture={() => {
-          if (campaign) setCampaignPickerRevealed(true);
-        }}
-      >
-        <label htmlFor="campaign">Active campaign</label>
-        <div className="campaign-picker">
-          <div className="select-wrap">
-            <Flag size={18} aria-hidden="true" />
-            <select
-              id="campaign"
-              value={campaignId}
-              onChange={(event) => {
-                setCampaignId(event.target.value);
-                setCampaignPickerRevealed(false);
-              }}
-            >
-              <option value="">Choose a campaign</option>
-              <CampaignOptionGroups groups={campaignGroups} />
-            </select>
-            <ChevronRight size={18} aria-hidden="true" />
-          </div>
-          <button
-            className="add-campaign-button"
-            type="button"
-            onClick={() => openCampaignForm()}
-            aria-label="Add campaign"
-            aria-expanded={campaignFormOpen}
-            aria-controls="campaign-form"
-          >
-            <Plus size={19} />
-          </button>
+          )}
         </div>
-        {campaign && (
-          <div className="campaign-stats">
-            <span>{campaignStores.length} stores</span>
-            <span>
-              {
-                campaignIssues.filter(
-                  (issue) => !isCompletedIssueStatus(issue.status),
-                ).length
-              }{" "}
-              open issues
-            </span>
-          </div>
-        )}
-      </section>
+      </header>
 
       {campaignFormOpen && (
         <CampaignFormModal
@@ -641,26 +544,35 @@ function App() {
         />
       )}
 
-      {!campaign ? (
+      {campaignManagerOpen ? (
+        <CampaignManager
+          activeCampaignId={campaignId}
+          groups={campaignGroups}
+          issues={issues}
+          stores={stores}
+          onAdd={() => openCampaignForm()}
+          onClose={() => setCampaignManagerOpen(false)}
+          onDelete={(item) => setCampaignDeleteId(item.id)}
+          onEdit={openCampaignForm}
+          onSelect={selectCampaignFromManager}
+        />
+      ) : !campaign ? (
         <main className="welcome">
           <BrandLockup className="welcome-lockup" />
           <p className="eyebrow">Ready for the floor</p>
-          <h1>Pick a campaign to get started.</h1>
+          <h1>Set up a campaign to get started.</h1>
           <p>
             Search all 493 stores, open directions, find nearby locations, and
             keep field issues organized—even when service drops.
           </p>
-          <label className="welcome-select" htmlFor="welcome-campaign">
-            <span>Campaign</span>
-            <select
-              id="welcome-campaign"
-              value={campaignId}
-              onChange={(event) => setCampaignId(event.target.value)}
-            >
-              <option value="">Select campaign</option>
-              <CampaignOptionGroups groups={campaignGroups} />
-            </select>
-          </label>
+          <button
+            className="welcome-manager-button"
+            type="button"
+            onClick={() => setCampaignManagerOpen(true)}
+          >
+            <Flag size={18} />
+            Open campaign manager
+          </button>
         </main>
       ) : (
         <>
@@ -679,7 +591,7 @@ function App() {
               <button
                 className="campaign-delete-button"
                 type="button"
-                onClick={() => setCampaignDeleteOpen(true)}
+                onClick={() => setCampaignDeleteId(campaign.id)}
               >
                 <Trash2 size={15} />
                 Delete campaign
@@ -899,7 +811,7 @@ function App() {
         </>
       )}
 
-      {campaign && campaignDeleteOpen && (
+      {campaignPendingDelete && (
         <div className="confirm-backdrop">
           <section
             className="campaign-confirm"
@@ -911,7 +823,9 @@ function App() {
             <div className="confirm-icon">
               <Trash2 size={22} />
             </div>
-            <h2 id="delete-campaign-title">Delete {campaign.name}?</h2>
+            <h2 id="delete-campaign-title">
+              Delete {campaignPendingDelete.name}?
+            </h2>
             <p id="delete-campaign-description">
               This cannot be undone.
               {campaignIssueCount > 0 &&
@@ -923,7 +837,7 @@ function App() {
               <button
                 className="secondary"
                 type="button"
-                onClick={() => setCampaignDeleteOpen(false)}
+                onClick={() => setCampaignDeleteId(null)}
                 autoFocus
               >
                 Cancel
