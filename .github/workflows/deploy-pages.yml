@@ -33,6 +33,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Stamp service worker release
+        run: sed -i "s/__BUILD_VERSION__/${GITHUB_SHA}/g" public/sw.js
+
       - name: Build PWA
         run: npm run build
 

@@ -1,5 +1,6 @@
 const basePath = "/dsw-store-locator/";
-const cacheName = "dsw-activations-v4";
+const release = "__BUILD_VERSION__";
+const cacheName = `dsw-activations-${release}`;
 const appShell = [
   basePath,
   `${basePath}assets/app.js`,
@@ -13,24 +14,34 @@ const appShell = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(cacheName).then((cache) => cache.addAll(appShell)),
+    Promise.all([
+      caches
+        .open(cacheName)
+        .then((cache) =>
+          cache.addAll(
+            appShell.map((url) => new Request(url, { cache: "reload" })),
+          ),
+        ),
+      self.skipWaiting(),
+    ]),
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== cacheName)
-            .map((key) => caches.delete(key)),
+    Promise.all([
+      caches
+        .keys()
+        .then((keys) =>
+          Promise.all(
+            keys
+              .filter((key) => key !== cacheName)
+              .map((key) => caches.delete(key)),
+          ),
         ),
-      ),
+      self.clients.claim(),
+    ]),
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {

@@ -19,6 +19,8 @@ the first successful visit.
 - Copies the filtered stores and their issue details as tab-separated clipboard data.
 - Suggests prior attention values during issue entry to reduce duplicates.
 - Installs as a PWA and caches the full store directory for offline use.
+- Detects deployed releases automatically, activates them immediately, and
+  refreshes an open app after the new worker takes control.
 - Uses the supplied DSW wordmark for standard, maskable, and Apple touch icons.
 
 ## Data notes
