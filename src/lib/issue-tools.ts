@@ -1,4 +1,14 @@
-import type { CampaignIssue, Store } from "../types";
+import {
+  ISSUE_STATUSES,
+  type CampaignIssue,
+  type IssueStatus,
+  type Store,
+} from "../types";
+
+const attentionStatusStorageKey =
+  "dsw-activations:attention-statuses:v1";
+
+export const DEFAULT_ATTENTION_STATUSES: IssueStatus[] = ["New", "Reported"];
 
 export interface AttentionOption {
   key: string;
@@ -13,6 +23,36 @@ export interface IssueExport {
 
 export const normalizeAttention = (value: string) =>
   value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+
+export function loadAttentionStatuses(): IssueStatus[] {
+  try {
+    const stored = window.localStorage.getItem(attentionStatusStorageKey);
+    if (stored === null) return [...DEFAULT_ATTENTION_STATUSES];
+
+    const value = JSON.parse(stored) as unknown;
+    if (
+      !Array.isArray(value) ||
+      value.some(
+        (status) =>
+          typeof status !== "string" ||
+          !ISSUE_STATUSES.includes(status as IssueStatus),
+      )
+    ) {
+      return [...DEFAULT_ATTENTION_STATUSES];
+    }
+
+    return ISSUE_STATUSES.filter((status) => value.includes(status));
+  } catch {
+    return [...DEFAULT_ATTENTION_STATUSES];
+  }
+}
+
+export function saveAttentionStatuses(statuses: IssueStatus[]) {
+  window.localStorage.setItem(
+    attentionStatusStorageKey,
+    JSON.stringify(statuses),
+  );
+}
 
 export function getAttentionOptions(
   issues: CampaignIssue[],
@@ -48,18 +88,37 @@ export function canonicalAttentionValue(
   return match?.label ?? trimmed;
 }
 
+export function filterIssuesByAttentionAndStatus(
+  issues: CampaignIssue[],
+  selectedKeys: string[],
+  selectedStatuses: IssueStatus[],
+) {
+  if (!selectedKeys.length) return issues;
+
+  const selectedAttention = new Set(selectedKeys);
+  const selectedStatus = new Set(selectedStatuses);
+
+  return issues.filter(
+    (issue) =>
+      selectedAttention.has(normalizeAttention(issue.summary)) &&
+      selectedStatus.has(issue.status),
+  );
+}
+
 export function filterStoresByAttention(
   stores: Store[],
   issues: CampaignIssue[],
   selectedKeys: string[],
+  selectedStatuses: IssueStatus[],
 ) {
   if (!selectedKeys.length) return stores;
 
-  const selected = new Set(selectedKeys);
   const matchingStores = new Set(
-    issues
-      .filter((issue) => selected.has(normalizeAttention(issue.summary)))
-      .map((issue) => issue.storeNumber),
+    filterIssuesByAttentionAndStatus(
+      issues,
+      selectedKeys,
+      selectedStatuses,
+    ).map((issue) => issue.storeNumber),
   );
 
   return stores.filter((store) => matchingStores.has(store.storeNumber));
@@ -69,7 +128,7 @@ const exportCell = (value: string) =>
   value.replaceAll("\t", " ").replace(/\r?\n/g, " ").trim();
 
 const exportHeaders = [
-  "Store number",
+  "Store",
   "Mall name",
   "Address",
   "City",
@@ -116,7 +175,7 @@ export function buildIssueExport(
 
     return issueRows.map((issue) =>
       [
-        store.storeNumber,
+        store.store,
         store.mallName,
         store.address,
         store.city,

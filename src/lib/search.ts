@@ -2,11 +2,10 @@ import Fuse from "fuse.js";
 import type { Store } from "../types";
 
 const partialSearchKeys: Array<keyof Store> = [
-  "storeNumber",
+  "store",
   "zip",
   "mallName",
   "address",
-  "store",
   "city",
   "state",
   "district",

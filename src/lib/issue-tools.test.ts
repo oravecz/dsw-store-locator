@@ -3,8 +3,12 @@ import type { CampaignIssue, Store } from "../types";
 import {
   buildIssueExport,
   canonicalAttentionValue,
+  DEFAULT_ATTENTION_STATUSES,
+  filterIssuesByAttentionAndStatus,
   filterStoresByAttention,
   getAttentionOptions,
+  loadAttentionStatuses,
+  saveAttentionStatuses,
 } from "./issue-tools";
 
 const store = (storeNumber: string, mallName: string): Store => ({
@@ -57,24 +61,48 @@ describe("issue tools", () => {
     );
   });
 
-  it("filters stores matching any selected attention value", () => {
+  it("filters stores by matching attention values and statuses", () => {
     const stores = [store("9051", "Dublin"), store("9052", "Easton")];
     const issues = [
-      issue("1", "9051", "Window decal"),
-      issue("2", "9052", "Missing sign"),
+      issue("1", "9051", "Window decal", { status: "New" }),
+      issue("2", "9052", "Missing sign", { status: "Resolved" }),
+      issue("3", "9052", "Window decal", { status: "Resolved" }),
     ];
 
     expect(
-      filterStoresByAttention(stores, issues, [
-        "window decal",
-        "missing sign",
-      ]).map((item) => item.storeNumber),
+      filterStoresByAttention(
+        stores,
+        issues,
+        ["window decal", "missing sign"],
+        ["New", "Reported"],
+      ).map((item) => item.storeNumber),
+    ).toEqual(["9051"]);
+    expect(
+      filterStoresByAttention(
+        stores,
+        issues,
+        ["window decal"],
+        ["New", "Resolved"],
+      ).map((item) => item.storeNumber),
     ).toEqual(["9051", "9052"]);
     expect(
-      filterStoresByAttention(stores, issues, ["window decal"]).map(
-        (item) => item.storeNumber,
-      ),
-    ).toEqual(["9051"]);
+      filterIssuesByAttentionAndStatus(
+        issues,
+        ["window decal"],
+        ["Resolved"],
+      ).map((item) => item.id),
+    ).toEqual(["3"]);
+  });
+
+  it("defaults and persists attention status choices", () => {
+    window.localStorage.clear();
+    expect(loadAttentionStatuses()).toEqual(DEFAULT_ATTENTION_STATUSES);
+
+    saveAttentionStatuses(["Resolved", "Accepted"]);
+    expect(loadAttentionStatuses()).toEqual(["Resolved", "Accepted"]);
+
+    saveAttentionStatuses([]);
+    expect(loadAttentionStatuses()).toEqual([]);
   });
 
   it("exports matching HTML and tab-separated table formats", () => {
@@ -84,13 +112,13 @@ describe("issue tools", () => {
     );
 
     expect(content.plainText).toContain(
-      "Store number\tMall name\tAddress\tCity\tState\tZIP",
+      "Store\tMall name\tAddress\tCity\tState\tZIP",
     );
     expect(content.plainText).toContain(
       "What needs attention\tNotes\tStatus\tCreated",
     );
     expect(content.plainText).toContain(
-      "9051\tDublin-Sawmill\t100 Main Street\tColumbus\tOH\t43000\tWindow decal",
+      "29051\tDublin-Sawmill\t100 Main Street\tColumbus\tOH\t43000\tWindow decal",
     );
 
     const template = document.createElement("template");

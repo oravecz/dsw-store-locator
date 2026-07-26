@@ -48,9 +48,11 @@ import { nearestStores } from "./lib/distance";
 import {
   buildIssueExport,
   canonicalAttentionValue,
+  filterIssuesByAttentionAndStatus,
   filterStoresByAttention,
   getAttentionOptions,
-  normalizeAttention,
+  loadAttentionStatuses,
+  saveAttentionStatuses,
   type AttentionOption,
 } from "./lib/issue-tools";
 import {
@@ -141,6 +143,8 @@ function App() {
   const [selectedAttentionKeys, setSelectedAttentionKeys] = useState<string[]>(
     [],
   );
+  const [selectedAttentionStatuses, setSelectedAttentionStatuses] =
+    useState<IssueStatus[]>(loadAttentionStatuses);
   const [exportStatus, setExportStatus] = useState("");
   const [campaignEditorTarget, setCampaignEditorTarget] = useState<
     "new" | string | null
@@ -173,6 +177,10 @@ function App() {
   useEffect(() => {
     saveCampaigns(campaigns);
   }, [campaigns]);
+
+  useEffect(() => {
+    saveAttentionStatuses(selectedAttentionStatuses);
+  }, [selectedAttentionStatuses]);
 
   useEffect(() => {
     if (!campaignDeleteId) return;
@@ -249,8 +257,14 @@ function App() {
         searchResults,
         campaignIssues,
         selectedAttentionKeys,
+        selectedAttentionStatuses,
       ),
-    [campaignIssues, searchResults, selectedAttentionKeys],
+    [
+      campaignIssues,
+      searchResults,
+      selectedAttentionKeys,
+      selectedAttentionStatuses,
+    ],
   );
   const issueCounts = useMemo(
     () =>
@@ -466,11 +480,21 @@ function App() {
     );
   };
 
+  const toggleAttentionStatus = (status: IssueStatus) => {
+    setSelectedAttentionStatuses((current) =>
+      current.includes(status)
+        ? current.filter((item) => item !== status)
+        : ISSUE_STATUSES.filter(
+            (item) => item === status || current.includes(item),
+          ),
+    );
+  };
+
   const exportFilteredStores = async () => {
-    const selected = new Set(selectedAttentionKeys);
-    const exportIssues = campaignIssues.filter(
-      (issue) =>
-        selected.size === 0 || selected.has(normalizeAttention(issue.summary)),
+    const exportIssues = filterIssuesByAttentionAndStatus(
+      campaignIssues,
+      selectedAttentionKeys,
+      selectedAttentionStatuses,
     );
 
     try {
@@ -629,7 +653,7 @@ function App() {
                     type="search"
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Store #, mall, city, ZIP, district…"
+                    placeholder="Store, mall, city, ZIP, district…"
                     autoComplete="off"
                   />
                   {query && (
@@ -694,6 +718,30 @@ function App() {
                       <strong>What needs attention</strong>
                       <small>Matches any selected value</small>
                     </div>
+                    <section
+                      className="attention-status-filter"
+                      aria-labelledby="attention-status-title"
+                    >
+                      <div className="attention-status-heading">
+                        <strong id="attention-status-title">Status</strong>
+                        <small>Matches any selected status</small>
+                      </div>
+                      <div className="attention-status-options">
+                        {ISSUE_STATUSES.map((status) => (
+                          <button
+                            className={status.toLocaleLowerCase()}
+                            type="button"
+                            key={status}
+                            aria-pressed={selectedAttentionStatuses.includes(
+                              status,
+                            )}
+                            onClick={() => toggleAttentionStatus(status)}
+                          >
+                            {status}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
                     <div className="attention-options">
                       {campaignAttentionOptions.map((option) => (
                         <label key={option.key}>
@@ -716,7 +764,7 @@ function App() {
                   {(query || selectedAttentionKeys.length > 0) && (
                     <span>
                       {selectedAttentionKeys.length > 0
-                        ? "Attention filters applied"
+                        ? "Attention & status filters applied"
                         : "Field-ranked partial matches first"}
                     </span>
                   )}
@@ -738,7 +786,7 @@ function App() {
                         type="button"
                         onClick={() => openStore(store)}
                       >
-                        <span className="store-number">#{store.storeNumber}</span>
+                        <span className="store-number">#{store.store}</span>
                         <span className="store-row-copy">
                           <strong>{store.mallName}</strong>
                           <small>
@@ -1100,7 +1148,7 @@ function StoreDetails({
       <section className="store-information">
         <div className="detail-heading">
           <div className="detail-tags">
-            <span>Store #{store.storeNumber}</span>
+            <span>Store #{store.store}</span>
             <span>{store.region.replaceAll("_", " ")}</span>
           </div>
           <h2>{store.mallName}</h2>
@@ -1149,7 +1197,7 @@ function StoreDetails({
               </span>
               <small className="fact-secondary-label">Store · Region</small>
               <span>
-                #{store.storeNumber} · {store.region.replaceAll("_", " ")}
+                #{store.store} · {store.region.replaceAll("_", " ")}
               </span>
             </div>
           </div>
@@ -1180,7 +1228,7 @@ function StoreDetails({
                 <span>
                   <strong>{nearbyStore.mallName}</strong>
                   <small>
-                    #{nearbyStore.storeNumber} · {nearbyStore.city},{" "}
+                    #{nearbyStore.store} · {nearbyStore.city},{" "}
                     {nearbyStore.state}
                   </small>
                 </span>

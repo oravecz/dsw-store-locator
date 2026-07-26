@@ -6,25 +6,30 @@ the first successful visit.
 
 ## What it does
 
-- Starts with a campaign selector and includes the **35th Birthday** campaign.
-- Adds and deletes activation campaigns with persisted titles and start dates.
-- Hides active campaign controls on mobile until the user pulls down from the
-  top of the screen.
-- Selects today’s activation or the nearest upcoming one when the app opens.
+- Includes the **35th Birthday** campaign and automatically selects today’s
+  activation or the nearest upcoming one when the app opens.
+- Opens a dedicated Campaign Manager from the header to select the active
+  campaign; add, edit, and delete campaigns; and review participating-store and
+  open-issue counts.
 - Groups campaigns more than seven days old under a newest-first archive.
+- Uses a full-page Campaign Editor for campaign titles, start dates, and
+  participating-store coverage, including partial-match filtering, bulk
+  selection tools, and copying coverage from another campaign.
 - Searches every store field with partial matches ranked ahead of fuzzy matches.
-- Ranks partial matches by store number, ZIP, mall name, then address.
+- Ranks partial matches by Store identifier, ZIP, mall name, then address.
 - Shows complete store details and a Google Maps directions link.
 - Lists the five closest stores using precomputed geographic coordinates.
 - Stacks nearest-store selections with top back navigation and a mobile
   right-swipe-from-edge gesture.
 - Adds, edits, resolves, reopens, and deletes campaign issues on the current device.
-- Filters stores by one or more prior “What needs attention” values.
-- Copies the filtered stores and their issue details as tab-separated clipboard data.
+- Filters stores by one or more prior “What needs attention” values and
+  remembered issue-status toggles that default to New and Reported.
+- Copies filtered stores and issue details as a rich HTML table with a
+  tab-separated plain-text fallback.
 - Suggests prior attention values during issue entry to reduce duplicates.
 - Installs as a PWA and caches the full store directory for offline use.
 - Prevents double-tap, pinch, and form-focus zoom in the installed mobile app.
-- Uses a safe-area-aware campaign dialog that remains visible in mobile Safari.
+- Uses safe-area-aware layouts and controls on mobile devices.
 - Detects deployed releases automatically, activates them immediately, and
   refreshes an open app after the new worker takes control.
 - Uses the supplied DSW wordmark for standard, maskable, and Apple touch icons.
@@ -42,7 +47,7 @@ devices and are cleared if the user removes site data.
 ## Local development
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 

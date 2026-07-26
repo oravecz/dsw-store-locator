@@ -175,7 +175,7 @@ export function CampaignEditor({
               type="search"
               value={storeQuery}
               onChange={(event) => setStoreQuery(event.target.value)}
-              placeholder="Filter by store #, ZIP, mall, address, city…"
+              placeholder="Filter by store, ZIP, mall, address, city…"
               aria-label="Filter participating stores"
             />
             {storeQuery && (
@@ -242,7 +242,7 @@ export function CampaignEditor({
                   onChange={() => toggleStore(store.storeNumber)}
                 />
                 <span className="selector-store-number">
-                  #{store.storeNumber}
+                  #{store.store}
                 </span>
                 <span>
                   <strong>{store.mallName}</strong>

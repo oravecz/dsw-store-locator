@@ -36,8 +36,8 @@ afterEach(() => {
 
 describe("writeIssueExportToClipboard", () => {
   const content = {
-    html: "<table><tr><td>9051</td></tr></table>",
-    plainText: "Store number\n9051",
+    html: "<table><tr><td>29051</td></tr></table>",
+    plainText: "Store\n29051",
   };
 
   it("writes HTML and plain text in one clipboard item", async () => {

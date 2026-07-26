@@ -40,21 +40,21 @@ describe("searchStores", () => {
     expect(results[0].storeNumber).toBe("9051");
   });
 
-  it("ranks partial matches by store number, ZIP, mall, then address", () => {
+  it("ranks partial matches by Store identifier, ZIP, mall, then address", () => {
     const rankedFixtures = [
       store("1001", "North Plaza", "Columbus", {
         address: "55 Campaign Road",
       }),
       store("1002", "Campaign Center", "Columbus"),
       store("1003", "South Plaza", "Columbus", { zip: "Campaign 43000" }),
-      store("Campaign 1004", "West Plaza", "Columbus"),
+      store("1004", "West Plaza", "Columbus", { store: "Campaign 21004" }),
     ];
 
     expect(
       searchStores(rankedFixtures, "campaign").map(
         (result) => result.storeNumber,
       ),
-    ).toEqual(["Campaign 1004", "1003", "1002", "1001"]);
+    ).toEqual(["1004", "1003", "1002", "1001"]);
   });
 
   it("finds misspelled values with fuzzy matching", () => {

@@ -83,8 +83,9 @@ describe("campaign store selection", () => {
         }),
         { target: { value: "Dublin-Sawmill" } },
       );
-      expect(within(selector).getByText("#9051")).toBeInTheDocument();
-      expect(within(selector).queryByText("#9052")).not.toBeInTheDocument();
+      expect(within(selector).getByText("#29051")).toBeInTheDocument();
+      expect(within(selector).queryByText("#29052")).not.toBeInTheDocument();
+      expect(within(selector).queryByText("#9051")).not.toBeInTheDocument();
 
       fireEvent.click(
         within(selector).getByRole("button", { name: "Deselect all" }),
@@ -103,8 +104,9 @@ describe("campaign store selection", () => {
       const directory = screen.getByRole("region", {
         name: "Store directory",
       });
-      expect(within(directory).getByText("#9051")).toBeInTheDocument();
-      expect(within(directory).queryByText("#9052")).not.toBeInTheDocument();
+      expect(within(directory).getByText("#29051")).toBeInTheDocument();
+      expect(within(directory).queryByText("#29052")).not.toBeInTheDocument();
+      expect(within(directory).queryByText("#9051")).not.toBeInTheDocument();
     },
     15_000,
   );
@@ -118,7 +120,9 @@ describe("campaign store selection", () => {
       const directory = screen.getByRole("region", {
         name: "Store directory",
       });
-      const storeButton = within(directory).getByText("#9051").closest("button");
+      const storeButton = within(directory)
+        .getByText("#29051")
+        .closest("button");
       expect(storeButton).not.toBeNull();
       fireEvent.click(storeButton!);
 
@@ -142,6 +146,88 @@ describe("campaign store selection", () => {
     },
     15_000,
   );
+
+  it("filters attention values by remembered status choices", async () => {
+    window.localStorage.setItem(
+      "dsw-campaign-field-guide:issues:v1",
+      JSON.stringify([
+        {
+          id: "new-window",
+          campaignId: "35th-birthday",
+          storeNumber: "9051",
+          summary: "Window decal",
+          notes: "",
+          status: "New",
+          createdAt: "2026-07-26T12:00:00.000Z",
+        },
+        {
+          id: "resolved-window",
+          campaignId: "35th-birthday",
+          storeNumber: "9052",
+          summary: "Window decal",
+          notes: "",
+          status: "Resolved",
+          createdAt: "2026-07-26T12:01:00.000Z",
+        },
+      ]),
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Attention" }));
+
+    let panel = screen.getByLabelText("Filter by what needs attention");
+    const newButton = within(panel).getByRole("button", { name: "New" });
+    const reportedButton = within(panel).getByRole("button", {
+      name: "Reported",
+    });
+    const resolvedButton = within(panel).getByRole("button", {
+      name: "Resolved",
+    });
+    const acceptedButton = within(panel).getByRole("button", {
+      name: "Accepted",
+    });
+
+    expect(newButton).toHaveAttribute("aria-pressed", "true");
+    expect(reportedButton).toHaveAttribute("aria-pressed", "true");
+    expect(resolvedButton).toHaveAttribute("aria-pressed", "false");
+    expect(acceptedButton).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(
+      within(panel).getByRole("checkbox", { name: /Window decal/ }),
+    );
+    const directory = screen.getByRole("region", {
+      name: "Store directory",
+    });
+    expect(within(directory).getByText("#29051")).toBeInTheDocument();
+    expect(within(directory).queryByText("#29052")).not.toBeInTheDocument();
+
+    fireEvent.click(resolvedButton);
+    expect(within(directory).getByText("#29051")).toBeInTheDocument();
+    expect(within(directory).getByText("#29052")).toBeInTheDocument();
+
+    fireEvent.click(newButton);
+    fireEvent.click(reportedButton);
+    expect(within(directory).queryByText("#29051")).not.toBeInTheDocument();
+    expect(within(directory).getByText("#29052")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        window.localStorage.getItem(
+          "dsw-activations:attention-statuses:v1",
+        ),
+      ).toBe(JSON.stringify(["Resolved"])),
+    );
+
+    cleanup();
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Attention" }));
+    panel = screen.getByLabelText("Filter by what needs attention");
+    expect(
+      within(panel).getByRole("button", { name: "Resolved" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(panel).getByRole("button", { name: "New" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
 
   // @lat: [[dsw-store-locator#Campaign Manager#Manager Screen]]
   it("opens campaign management from the header and exposes campaign actions", () => {
@@ -241,7 +327,7 @@ describe("campaign store selection", () => {
       expect(screen.getByText("Copied 1")).toBeInTheDocument(),
     );
     expect(writeText).toHaveBeenCalledWith(
-      expect.stringContaining("9051\tDublin-Sawmill"),
+      expect.stringContaining("29051\tDublin-Sawmill"),
     );
   });
 

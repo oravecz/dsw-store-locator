@@ -1122,6 +1122,77 @@ a {
   border-top: 1px solid #ebe5dc;
 }
 
+.attention-status-filter {
+  margin-bottom: 11px;
+  padding: 10px;
+  background: var(--cream);
+  border: 1px solid #ddd4c8;
+}
+
+.attention-status-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.attention-status-heading strong {
+  font-size: 11px;
+}
+
+.attention-status-heading small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.attention-status-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.attention-status-options button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 5px;
+  color: var(--muted);
+  background: var(--white);
+  border: 1px solid var(--line);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.attention-status-options button[aria-pressed="true"] {
+  color: var(--white);
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: 2px 2px 0 rgb(23 18 15 / 14%);
+}
+
+.attention-status-options button.new[aria-pressed="true"] {
+  background: #9d1539;
+  border-color: #9d1539;
+}
+
+.attention-status-options button.reported[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--yellow);
+}
+
+.attention-status-options button.resolved[aria-pressed="true"] {
+  background: #247344;
+  border-color: #247344;
+}
+
+.attention-status-options button.accepted[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--mint);
+  border-color: #4e9b86;
+}
+
 .attention-options label {
   display: grid;
   grid-template-columns: auto 1fr auto;
