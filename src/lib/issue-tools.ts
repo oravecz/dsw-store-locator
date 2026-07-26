@@ -6,6 +6,11 @@ export interface AttentionOption {
   count: number;
 }
 
+export interface IssueExport {
+  html: string;
+  plainText: string;
+}
+
 export const normalizeAttention = (value: string) =>
   value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
@@ -63,51 +68,91 @@ export function filterStoresByAttention(
 const exportCell = (value: string) =>
   value.replaceAll("\t", " ").replace(/\r?\n/g, " ").trim();
 
+const exportHeaders = [
+  "Store number",
+  "Mall name",
+  "Address",
+  "City",
+  "State",
+  "ZIP",
+  "What needs attention",
+  "Notes",
+  "Status",
+  "Created",
+];
+
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
+const tableStyle =
+  "border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;";
+const headerCellStyle =
+  "border:1px solid #999;background:#17120f;color:#fff;padding:6px 8px;text-align:left;font-weight:bold;";
+const bodyCellStyle =
+  "border:1px solid #bbb;padding:6px 8px;text-align:left;vertical-align:top;";
+
+// @lat: [[dsw-store-locator#Clipboard Export#Rich Table Format]]
 export function buildIssueExport(
   stores: Store[],
   issues: CampaignIssue[],
-) {
-  const header = [
-    "Store number",
-    "Mall name",
-    "Address",
-    "City",
-    "State",
-    "ZIP",
-    "What needs attention",
-    "Notes",
-    "Status",
-    "Created",
-  ];
-  const rows = [header.join("\t")];
+): IssueExport {
+  const issuesByStore = new Map<string, CampaignIssue[]>();
+  issues.forEach((issue) => {
+    const storeIssues = issuesByStore.get(issue.storeNumber) ?? [];
+    storeIssues.push(issue);
+    issuesByStore.set(issue.storeNumber, storeIssues);
+  });
 
-  stores.forEach((store) => {
-    const storeIssues = issues.filter(
-      (issue) => issue.storeNumber === store.storeNumber,
-    );
+  const rows = stores.flatMap((store) => {
+    const storeIssues = issuesByStore.get(store.storeNumber) ?? [];
     const issueRows: Array<CampaignIssue | null> = storeIssues.length
       ? storeIssues
       : [null];
 
-    issueRows.forEach((issue) => {
-      rows.push(
-        [
-          store.storeNumber,
-          store.mallName,
-          store.address,
-          store.city,
-          store.state,
-          store.zip,
-          issue?.summary ?? "",
-          issue?.notes ?? "",
-          issue?.status ?? "",
-          issue?.createdAt ?? "",
-        ]
-          .map(exportCell)
-          .join("\t"),
-      );
-    });
+    return issueRows.map((issue) =>
+      [
+        store.storeNumber,
+        store.mallName,
+        store.address,
+        store.city,
+        store.state,
+        store.zip,
+        issue?.summary ?? "",
+        issue?.notes ?? "",
+        issue?.status ?? "",
+        issue?.createdAt ?? "",
+      ].map(exportCell),
+    );
   });
 
-  return rows.join("\n");
+  const plainText = [exportHeaders, ...rows]
+    .map((row) => row.join("\t"))
+    .join("\n");
+  const html = [
+    `<table style="${tableStyle}">`,
+    "<thead><tr>",
+    ...exportHeaders.map(
+      (header) =>
+        `<th style="${headerCellStyle}">${escapeHtml(header)}</th>`,
+    ),
+    "</tr></thead>",
+    "<tbody>",
+    ...rows.map(
+      (row) =>
+        `<tr>${row
+          .map(
+            (value) =>
+              `<td style="${bodyCellStyle}">${escapeHtml(value)}</td>`,
+          )
+          .join("")}</tr>`,
+    ),
+    "</tbody></table>",
+  ].join("");
+
+  return { html, plainText };
 }

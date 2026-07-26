@@ -30,6 +30,7 @@ const issue = (
   id: string,
   storeNumber: string,
   summary: string,
+  overrides: Partial<CampaignIssue> = {},
 ): CampaignIssue => ({
   id,
   campaignId: "35th-birthday",
@@ -38,6 +39,7 @@ const issue = (
   notes: "Front window",
   status: "Reported",
   createdAt: "2026-07-26T12:00:00.000Z",
+  ...overrides,
 });
 
 describe("issue tools", () => {
@@ -75,20 +77,74 @@ describe("issue tools", () => {
     ).toEqual(["9051"]);
   });
 
-  it("exports store and issue details as tab-separated rows", () => {
-    const text = buildIssueExport(
+  it("exports matching HTML and tab-separated table formats", () => {
+    const content = buildIssueExport(
       [store("9051", "Dublin-Sawmill")],
       [issue("1", "9051", "Window decal")],
     );
 
-    expect(text).toContain(
+    expect(content.plainText).toContain(
       "Store number\tMall name\tAddress\tCity\tState\tZIP",
     );
-    expect(text).toContain(
+    expect(content.plainText).toContain(
       "What needs attention\tNotes\tStatus\tCreated",
     );
-    expect(text).toContain(
+    expect(content.plainText).toContain(
       "9051\tDublin-Sawmill\t100 Main Street\tColumbus\tOH\t43000\tWindow decal",
+    );
+
+    const template = document.createElement("template");
+    template.innerHTML = content.html;
+    expect(template.content.querySelectorAll("thead th")).toHaveLength(10);
+    expect(template.content.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(
+      [...template.content.querySelectorAll("tbody td")].map(
+        (cell) => cell.textContent,
+      ),
+    ).toEqual(content.plainText.split("\n")[1].split("\t"));
+  });
+
+  it("uses one row per issue and a blank issue row for stores without issues", () => {
+    const content = buildIssueExport(
+      [store("9051", "Dublin"), store("9052", "Easton")],
+      [
+        issue("1", "9051", "Window decal"),
+        issue("2", "9051", "Missing sign"),
+      ],
+    );
+    const rows = content.plainText
+      .split("\n")
+      .slice(1)
+      .map((row) => row.split("\t"));
+
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => row[6])).toEqual([
+      "Window decal",
+      "Missing sign",
+      "",
+    ]);
+    expect(rows[2].slice(6)).toEqual(["", "", "", ""]);
+  });
+
+  it("escapes HTML from store and issue content", () => {
+    const content = buildIssueExport(
+      [store("9051", "Dublin & <Sawmill>")],
+      [
+        issue("1", "9051", "<script>alert('x')</script>", {
+          notes: 'Use "front" & side',
+        }),
+      ],
+    );
+    const template = document.createElement("template");
+    template.innerHTML = content.html;
+
+    expect(template.content.querySelector("script")).toBeNull();
+    expect(content.html).not.toContain("<script>alert");
+    expect(template.content.querySelector("tbody")?.textContent).toContain(
+      "<script>alert('x')</script>",
+    );
+    expect(template.content.querySelector("tbody")?.textContent).toContain(
+      'Use "front" & side',
     );
   });
 });

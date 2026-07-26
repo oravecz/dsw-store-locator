@@ -43,6 +43,7 @@ import {
   saveCampaigns,
   selectInitialCampaign,
 } from "./lib/campaigns";
+import { writeIssueExportToClipboard } from "./lib/clipboard";
 import { nearestStores } from "./lib/distance";
 import {
   buildIssueExport,
@@ -473,7 +474,7 @@ function App() {
     );
 
     try {
-      await navigator.clipboard.writeText(
+      await writeIssueExportToClipboard(
         buildIssueExport(results, exportIssues),
       );
       setExportStatus(`Copied ${results.length}`);

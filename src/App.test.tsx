@@ -3,14 +3,46 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
+const originalClipboard = Object.getOwnPropertyDescriptor(
+  navigator,
+  "clipboard",
+);
+
+class AppClipboardItemMock {
+  static supports = vi.fn(() => true);
+  readonly data: Record<string, Blob>;
+
+  constructor(data: Record<string, Blob>) {
+    this.data = data;
+  }
+}
+
+const setAppClipboard = (clipboard: {
+  write: ReturnType<typeof vi.fn>;
+  writeText: ReturnType<typeof vi.fn>;
+}) => {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: clipboard,
+  });
+  vi.stubGlobal("ClipboardItem", AppClipboardItemMock);
+};
+
 describe("campaign store selection", () => {
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
+    if (originalClipboard) {
+      Object.defineProperty(navigator, "clipboard", originalClipboard);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 
   beforeEach(() => {
@@ -162,5 +194,75 @@ describe("campaign store selection", () => {
       screen.getByRole("heading", { name: "Add campaign" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("exports the filtered stores as HTML and plain text", async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setAppClipboard({ write, writeText });
+    render(<App />);
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Find a store" }),
+      { target: { value: "Dublin-Sawmill" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Copy filtered stores and issues to clipboard",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("Copied 1")).toBeInTheDocument(),
+    );
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(writeText).not.toHaveBeenCalled();
+    const item = write.mock.calls[0][0][0] as AppClipboardItemMock;
+    expect(Object.keys(item.data)).toEqual(["text/html", "text/plain"]);
+  });
+
+  it("reports success when rich export falls back to plain text", async () => {
+    const write = vi.fn().mockRejectedValue(new DOMException("Denied"));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setAppClipboard({ write, writeText });
+    render(<App />);
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Find a store" }),
+      { target: { value: "Dublin-Sawmill" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Copy filtered stores and issues to clipboard",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("Copied 1")).toBeInTheDocument(),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining("9051\tDublin-Sawmill"),
+    );
+  });
+
+  it("reports failure when rich and plain-text export both fail", async () => {
+    const write = vi.fn().mockRejectedValue(new DOMException("Denied"));
+    const writeText = vi.fn().mockRejectedValue(new DOMException("Denied"));
+    setAppClipboard({ write, writeText });
+    render(<App />);
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Find a store" }),
+      { target: { value: "Dublin-Sawmill" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Copy filtered stores and issues to clipboard",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("Copy failed")).toBeInTheDocument(),
+    );
   });
 });
