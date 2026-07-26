@@ -3,11 +3,15 @@ import {
   Check,
   ChevronRight,
   CircleAlert,
+  ClipboardCopy,
   Clock3,
   ExternalLink,
+  FilterX,
   Flag,
+  ListFilter,
   LocateFixed,
   MapPin,
+  Pencil,
   Phone,
   Plus,
   Search,
@@ -26,6 +30,14 @@ import {
 } from "react";
 import storesData from "./data/stores.json";
 import { nearestStores } from "./lib/distance";
+import {
+  buildIssueExport,
+  canonicalAttentionValue,
+  filterStoresByAttention,
+  getAttentionOptions,
+  normalizeAttention,
+  type AttentionOption,
+} from "./lib/issue-tools";
 import { loadIssues, saveIssues } from "./lib/issues";
 import { searchStores } from "./lib/search";
 import type {
@@ -49,6 +61,20 @@ const campaigns: Campaign[] = [
     kicker: "Celebrate every step",
   },
 ];
+
+function BrandLockup({ className = "" }: { className?: string }) {
+  return (
+    <span className={`brand-lockup ${className}`.trim()}>
+      <img
+        src={`${import.meta.env.BASE_URL}dsw-logo.png`}
+        alt="DSW"
+        width="142"
+        height="47"
+      />
+      <span>Activations</span>
+    </span>
+  );
+}
 
 const priorityOrder: Record<IssuePriority, number> = {
   High: 0,
@@ -83,6 +109,12 @@ function App() {
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingIssueId, setEditingIssueId] = useState<string | null>(null);
+  const [attentionFilterOpen, setAttentionFilterOpen] = useState(false);
+  const [selectedAttentionKeys, setSelectedAttentionKeys] = useState<string[]>(
+    [],
+  );
+  const [exportStatus, setExportStatus] = useState("");
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -114,16 +146,37 @@ function App() {
       window.localStorage.removeItem("dsw:selected-campaign");
       setSelectedStore(null);
     }
+    setSelectedAttentionKeys([]);
+    setAttentionFilterOpen(false);
+    setEditingIssueId(null);
+    setFormOpen(false);
   }, [campaignId]);
 
   const campaign = campaigns.find((item) => item.id === campaignId) ?? null;
-  const results = useMemo(
+  const searchResults = useMemo(
     () => searchStores(stores, query, stores.length),
     [query],
   );
   const campaignIssues = useMemo(
     () => issues.filter((issue) => issue.campaignId === campaignId),
     [campaignId, issues],
+  );
+  const attentionSuggestions = useMemo(
+    () => getAttentionOptions(issues),
+    [issues],
+  );
+  const campaignAttentionOptions = useMemo(
+    () => getAttentionOptions(campaignIssues),
+    [campaignIssues],
+  );
+  const results = useMemo(
+    () =>
+      filterStoresByAttention(
+        searchResults,
+        campaignIssues,
+        selectedAttentionKeys,
+      ),
+    [campaignIssues, searchResults, selectedAttentionKeys],
   );
   const issueCounts = useMemo(
     () =>
@@ -135,38 +188,64 @@ function App() {
       }, {}),
     [campaignIssues],
   );
+  const editingIssue =
+    issues.find((issue) => issue.id === editingIssueId) ?? null;
 
   const selectStore = (store: Store) => {
     setSelectedStore(store);
     setFormOpen(false);
+    setEditingIssueId(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const addIssue = (event: FormEvent<HTMLFormElement>) => {
+  const openIssueForm = (issue?: CampaignIssue) => {
+    setEditingIssueId(issue?.id ?? null);
+    setFormOpen(true);
+  };
+
+  const closeIssueForm = () => {
+    setEditingIssueId(null);
+    setFormOpen(false);
+  };
+
+  const saveIssue = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedStore || !campaign) return;
 
     const data = new FormData(event.currentTarget);
-    const summary = String(data.get("summary") ?? "").trim();
+    const summary = canonicalAttentionValue(
+      String(data.get("summary") ?? ""),
+      attentionSuggestions,
+    );
     const notes = String(data.get("notes") ?? "").trim();
     const priority = String(data.get("priority") ?? "Medium") as IssuePriority;
     if (!summary) return;
 
-    setIssues((current) => [
-      {
-        id: crypto.randomUUID(),
-        campaignId: campaign.id,
-        storeNumber: selectedStore.storeNumber,
-        summary,
-        notes,
-        priority,
-        status: "Open",
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ]);
+    setIssues((current) => {
+      if (editingIssueId) {
+        return current.map((issue) =>
+          issue.id === editingIssueId
+            ? { ...issue, summary, notes, priority }
+            : issue,
+        );
+      }
+
+      return [
+        {
+          id: crypto.randomUUID(),
+          campaignId: campaign.id,
+          storeNumber: selectedStore.storeNumber,
+          summary,
+          notes,
+          priority,
+          status: "Open",
+          createdAt: new Date().toISOString(),
+        },
+        ...current,
+      ];
+    });
     event.currentTarget.reset();
-    setFormOpen(false);
+    closeIssueForm();
   };
 
   const toggleIssue = (id: string) => {
@@ -184,6 +263,34 @@ function App() {
 
   const deleteIssue = (id: string) => {
     setIssues((current) => current.filter((issue) => issue.id !== id));
+    if (editingIssueId === id) closeIssueForm();
+  };
+
+  const toggleAttentionFilter = (key: string) => {
+    setSelectedAttentionKeys((current) =>
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key],
+    );
+  };
+
+  const exportFilteredStores = async () => {
+    const selected = new Set(selectedAttentionKeys);
+    const exportIssues = campaignIssues.filter(
+      (issue) =>
+        selected.size === 0 || selected.has(normalizeAttention(issue.summary)),
+    );
+
+    try {
+      await navigator.clipboard.writeText(
+        buildIssueExport(results, exportIssues),
+      );
+      setExportStatus(`Copied ${results.length}`);
+    } catch {
+      setExportStatus("Copy failed");
+    }
+
+    window.setTimeout(() => setExportStatus(""), 2400);
   };
 
   const installApp = async () => {
@@ -197,11 +304,7 @@ function App() {
     <div className="app-shell">
       <header className="app-header">
         <a className="brand" href="#top" aria-label="DSW Activations">
-          <span className="brand-mark">DSW</span>
-          <span className="brand-copy">
-            <strong>Field Guide</strong>
-            <small>Campaign operations</small>
-          </span>
+          <BrandLockup className="header-lockup" />
         </a>
 
         <div className="header-actions">
@@ -249,9 +352,7 @@ function App() {
 
       {!campaign ? (
         <main className="welcome">
-          <div className="birthday-orbit" aria-hidden="true">
-            <span>35</span>
-          </div>
+          <BrandLockup className="welcome-lockup" />
           <p className="eyebrow">Ready for the floor</p>
           <h1>Pick a campaign to get started.</h1>
           <p>
@@ -314,11 +415,84 @@ function App() {
                     </button>
                   )}
                 </div>
+                <div className="directory-tools">
+                  <button
+                    className={`attention-filter-button ${
+                      selectedAttentionKeys.length ? "active" : ""
+                    }`}
+                    type="button"
+                    onClick={() =>
+                      setAttentionFilterOpen((current) => !current)
+                    }
+                    disabled={!campaignAttentionOptions.length}
+                    aria-expanded={attentionFilterOpen}
+                    aria-controls="attention-filter-panel"
+                  >
+                    <ListFilter size={17} />
+                    <span>Attention</span>
+                    {selectedAttentionKeys.length > 0 && (
+                      <strong>{selectedAttentionKeys.length}</strong>
+                    )}
+                  </button>
+                  {selectedAttentionKeys.length > 0 && (
+                    <button
+                      className="clear-filter-button"
+                      type="button"
+                      onClick={() => setSelectedAttentionKeys([])}
+                      aria-label="Clear attention filters"
+                      title="Clear filters"
+                    >
+                      <FilterX size={17} />
+                    </button>
+                  )}
+                  <button
+                    className="export-button"
+                    type="button"
+                    onClick={exportFilteredStores}
+                    disabled={!results.length}
+                    aria-label="Copy filtered stores and issues to clipboard"
+                    title="Copy filtered stores and issues"
+                  >
+                    <ClipboardCopy size={17} />
+                    <span>{exportStatus || "Export"}</span>
+                  </button>
+                </div>
+                {attentionFilterOpen && (
+                  <div
+                    className="attention-filter-panel"
+                    id="attention-filter-panel"
+                    aria-label="Filter by what needs attention"
+                  >
+                    <div>
+                      <strong>What needs attention</strong>
+                      <small>Matches any selected value</small>
+                    </div>
+                    <div className="attention-options">
+                      {campaignAttentionOptions.map((option) => (
+                        <label key={option.key}>
+                          <input
+                            type="checkbox"
+                            checked={selectedAttentionKeys.includes(option.key)}
+                            onChange={() => toggleAttentionFilter(option.key)}
+                          />
+                          <span>{option.label}</span>
+                          <small>{option.count}</small>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="result-summary" aria-live="polite">
                   <span>
                     {results.length} {results.length === 1 ? "match" : "matches"}
                   </span>
-                  {query && <span>Partial matches shown first</span>}
+                  {(query || selectedAttentionKeys.length > 0) && (
+                    <span>
+                      {selectedAttentionKeys.length > 0
+                        ? "Attention filters applied"
+                        : "Field-ranked partial matches first"}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -371,11 +545,13 @@ function App() {
                   stores={stores}
                   issues={campaignIssues}
                   formOpen={formOpen}
+                  editingIssue={editingIssue}
+                  attentionSuggestions={attentionSuggestions}
                   onBack={() => setSelectedStore(null)}
                   onSelectStore={selectStore}
-                  onOpenForm={() => setFormOpen(true)}
-                  onCloseForm={() => setFormOpen(false)}
-                  onAddIssue={addIssue}
+                  onOpenForm={openIssueForm}
+                  onCloseForm={closeIssueForm}
+                  onSaveIssue={saveIssue}
                   onToggleIssue={toggleIssue}
                   onDeleteIssue={deleteIssue}
                 />
@@ -409,11 +585,13 @@ interface StoreDetailsProps {
   stores: Store[];
   issues: CampaignIssue[];
   formOpen: boolean;
+  editingIssue: CampaignIssue | null;
+  attentionSuggestions: AttentionOption[];
   onBack: () => void;
   onSelectStore: (store: Store) => void;
-  onOpenForm: () => void;
+  onOpenForm: (issue?: CampaignIssue) => void;
   onCloseForm: () => void;
-  onAddIssue: (event: FormEvent<HTMLFormElement>) => void;
+  onSaveIssue: (event: FormEvent<HTMLFormElement>) => void;
   onToggleIssue: (id: string) => void;
   onDeleteIssue: (id: string) => void;
 }
@@ -423,11 +601,13 @@ function StoreDetails({
   stores,
   issues,
   formOpen,
+  editingIssue,
+  attentionSuggestions,
   onBack,
   onSelectStore,
   onOpenForm,
   onCloseForm,
-  onAddIssue,
+  onSaveIssue,
   onToggleIssue,
   onDeleteIssue,
 }: StoreDetailsProps) {
@@ -456,67 +636,14 @@ function StoreDetails({
         All stores
       </button>
 
-      <div className="detail-heading">
-        <div className="detail-tags">
-          <span>Store #{store.storeNumber}</span>
-          <span>{store.region.replaceAll("_", " ")}</span>
-        </div>
-        <h2>{store.mallName}</h2>
-        <p>
-          {store.city}, {store.state}
-        </p>
-      </div>
-
-      <a className="maps-button" href={mapsUrl} target="_blank" rel="noreferrer">
-        <MapPin size={19} />
-        Open in Google Maps
-        <ExternalLink size={16} />
-      </a>
-
-      <div className="facts-card">
-        <div className="fact">
-          <MapPin size={18} />
-          <div>
-            <small>Address</small>
-            <span>{store.address}</span>
-            <span>
-              {store.city}, {store.state} {store.zip}
-            </span>
-          </div>
-        </div>
-        <div className="fact">
-          <Phone size={18} />
-          <div>
-            <small>Phone</small>
-            <a href={`tel:${store.phone}`}>{store.phone}</a>
-          </div>
-        </div>
-        <div className="fact">
-          <Clock3 size={18} />
-          <div>
-            <small>Store hours</small>
-            <span>{store.storeHours}</span>
-          </div>
-        </div>
-        <div className="fact">
-          <StoreIcon size={18} />
-          <div>
-            <small>District · Opened</small>
-            <span>
-              {store.district} · {formatDate(store.openDate)}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <section className="issues-section">
+      <section className="issues-section campaign-log">
         <div className="section-heading">
           <div>
             <p className="eyebrow">Campaign log</p>
             <h3>Store issues</h3>
           </div>
           {!formOpen && (
-            <button type="button" onClick={onOpenForm}>
+            <button type="button" onClick={() => onOpenForm()}>
               <Plus size={17} />
               Add issue
             </button>
@@ -524,9 +651,13 @@ function StoreDetails({
         </div>
 
         {formOpen && (
-          <form className="issue-form" onSubmit={onAddIssue}>
+          <form
+            className="issue-form"
+            key={editingIssue?.id ?? "new"}
+            onSubmit={onSaveIssue}
+          >
             <div className="form-heading">
-              <strong>New issue</strong>
+              <strong>{editingIssue ? "Edit issue" : "New issue"}</strong>
               <button
                 type="button"
                 onClick={onCloseForm}
@@ -541,8 +672,15 @@ function StoreDetails({
                 name="summary"
                 required
                 maxLength={90}
+                list="attention-suggestions"
+                defaultValue={editingIssue?.summary ?? ""}
                 placeholder="e.g. Window decal is peeling"
               />
+              <datalist id="attention-suggestions">
+                {attentionSuggestions.map((option) => (
+                  <option value={option.label} key={option.key} />
+                ))}
+              </datalist>
             </label>
             <label>
               <span>Notes <small>(optional)</small></span>
@@ -550,12 +688,16 @@ function StoreDetails({
                 name="notes"
                 rows={3}
                 maxLength={500}
+                defaultValue={editingIssue?.notes ?? ""}
                 placeholder="Add context, location, or next step"
               />
             </label>
             <label>
               <span>Priority</span>
-              <select name="priority" defaultValue="Medium">
+              <select
+                name="priority"
+                defaultValue={editingIssue?.priority ?? "Medium"}
+              >
                 <option>Low</option>
                 <option>Medium</option>
                 <option>High</option>
@@ -566,7 +708,7 @@ function StoreDetails({
                 Cancel
               </button>
               <button type="submit" className="primary">
-                Save issue
+                {editingIssue ? "Update issue" : "Save issue"}
               </button>
             </div>
           </form>
@@ -608,19 +750,33 @@ function StoreDetails({
                   <strong>{issue.summary}</strong>
                   {issue.notes && <p>{issue.notes}</p>}
                 </div>
-                <button
-                  className="delete-issue"
-                  type="button"
-                  onClick={() => onDeleteIssue(issue.id)}
-                  aria-label={`Delete ${issue.summary}`}
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="issue-actions">
+                  <button
+                    className="edit-issue"
+                    type="button"
+                    onClick={() => onOpenForm(issue)}
+                    aria-label={`Edit ${issue.summary}`}
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    className="delete-issue"
+                    type="button"
+                    onClick={() => onDeleteIssue(issue.id)}
+                    aria-label={`Delete ${issue.summary}`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </article>
             ))
           ) : (
             !formOpen && (
-              <button className="no-issues" type="button" onClick={onOpenForm}>
+              <button
+                className="no-issues"
+                type="button"
+                onClick={() => onOpenForm()}
+              >
                 <Check size={20} />
                 <span>
                   <strong>No issues logged</strong>
@@ -629,6 +785,65 @@ function StoreDetails({
               </button>
             )
           )}
+        </div>
+      </section>
+
+      <section className="store-information">
+        <div className="detail-heading">
+          <div className="detail-tags">
+            <span>Store #{store.storeNumber}</span>
+            <span>{store.region.replaceAll("_", " ")}</span>
+          </div>
+          <h2>{store.mallName}</h2>
+          <p>
+            {store.city}, {store.state}
+          </p>
+        </div>
+
+        <a className="maps-button" href={mapsUrl} target="_blank" rel="noreferrer">
+          <MapPin size={19} />
+          Open in Google Maps
+          <ExternalLink size={16} />
+        </a>
+
+        <div className="facts-card">
+          <div className="fact">
+            <MapPin size={18} />
+            <div>
+              <small>Address</small>
+              <span>{store.address}</span>
+              <span>
+                {store.city}, {store.state} {store.zip}
+              </span>
+            </div>
+          </div>
+          <div className="fact">
+            <Phone size={18} />
+            <div>
+              <small>Phone</small>
+              <a href={`tel:${store.phone}`}>{store.phone}</a>
+            </div>
+          </div>
+          <div className="fact">
+            <Clock3 size={18} />
+            <div>
+              <small>Store hours</small>
+              <span>{store.storeHours}</span>
+            </div>
+          </div>
+          <div className="fact">
+            <StoreIcon size={18} />
+            <div>
+              <small>District · Opened</small>
+              <span>
+                {store.district} · {formatDate(store.openDate)}
+              </span>
+              <small className="fact-secondary-label">Store · Region</small>
+              <span>
+                #{store.storeNumber} · {store.region.replaceAll("_", " ")}
+              </span>
+            </div>
+          </div>
         </div>
       </section>
 

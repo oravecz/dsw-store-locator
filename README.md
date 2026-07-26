@@ -8,9 +8,13 @@ the first successful visit.
 
 - Starts with a campaign selector and includes the **35th Birthday** campaign.
 - Searches every store field with partial matches ranked ahead of fuzzy matches.
+- Ranks partial matches by store number, ZIP, mall name, then address.
 - Shows complete store details and a Google Maps directions link.
 - Lists the five closest stores using precomputed geographic coordinates.
-- Saves campaign issues, priorities, and resolution status on the current device.
+- Adds, edits, resolves, reopens, and deletes campaign issues on the current device.
+- Filters stores by one or more prior “What needs attention” values.
+- Copies the filtered stores and their issue details as tab-separated clipboard data.
+- Suggests prior attention values during issue entry to reduce duplicates.
 - Installs as a PWA and caches the full store directory for offline use.
 - Uses the supplied DSW wordmark for standard, maskable, and Apple touch icons.
 

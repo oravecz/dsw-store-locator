@@ -1,21 +1,23 @@
 import Fuse from "fuse.js";
 import type { Store } from "../types";
 
-const searchKeys: Array<keyof Store> = [
-  "store",
+const partialSearchKeys: Array<keyof Store> = [
   "storeNumber",
+  "zip",
   "mallName",
-  "openDate",
   "address",
+  "store",
   "city",
   "state",
-  "zip",
+  "district",
+  "region",
   "phone",
   "fax",
   "storeHours",
-  "district",
-  "region",
+  "openDate",
 ];
+
+const searchKeys = partialSearchKeys;
 
 const normalize = (value: unknown) =>
   String(value ?? "")
@@ -28,13 +30,16 @@ const normalize = (value: unknown) =>
 const directRank = (store: Store, query: string) => {
   let best = Number.POSITIVE_INFINITY;
 
-  searchKeys.forEach((key, fieldIndex) => {
+  partialSearchKeys.forEach((key, fieldIndex) => {
     const field = normalize(store[key]);
     const position = field.indexOf(query);
     if (position === -1) return;
 
-    const startsAtField = position === 0 ? 0 : 1;
-    best = Math.min(best, startsAtField * 1000 + position * 10 + fieldIndex);
+    const matchType = field === query ? 0 : position === 0 ? 1 : 2;
+    best = Math.min(
+      best,
+      fieldIndex * 1_000_000 + matchType * 100_000 + position,
+    );
   });
 
   return best;
