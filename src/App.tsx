@@ -16,8 +16,6 @@ import {
   Phone,
   Plus,
   Search,
-  Signal,
-  SignalZero,
   Smartphone,
   Store as StoreIcon,
   Trash2,
@@ -153,7 +151,6 @@ function App() {
   const [query, setQuery] = useState("");
   const [storeHistory, setStoreHistory] = useState<string[]>([]);
   const [issues, setIssues] = useState<CampaignIssue[]>(loadIssues);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -174,20 +171,14 @@ function App() {
   const campaignPullStartRef = useRef<SwipePoint | null>(null);
 
   useEffect(() => {
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
     const onBeforeInstall = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
 
     return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
     };
   }, []);
@@ -525,21 +516,14 @@ function App() {
           <BrandLockup className="header-lockup" />
         </a>
 
-        <div className="header-actions">
-          <span
-            className={`network-status ${isOnline ? "online" : "offline"}`}
-            aria-live="polite"
-          >
-            {isOnline ? <Signal size={14} /> : <SignalZero size={14} />}
-            {isOnline ? "Online" : "Offline"}
-          </span>
-          {installPrompt && (
+        {installPrompt && (
+          <div className="header-actions">
             <button className="install-button" type="button" onClick={installApp}>
               <Smartphone size={16} />
               Install
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </header>
 
       <section

@@ -150,7 +150,6 @@ a {
   align-items: center;
 }
 
-.network-status,
 .install-button {
   display: inline-flex;
   gap: 6px;
@@ -163,10 +162,6 @@ a {
   background: rgb(255 255 255 / 7%);
   font-size: 12px;
   font-weight: 700;
-}
-
-.network-status.offline {
-  color: var(--yellow);
 }
 
 .install-button {
@@ -1451,13 +1446,6 @@ footer {
   .header-lockup {
     width: 82px;
     padding-inline: 9px;
-  }
-
-  .network-status {
-    width: 34px;
-    padding: 0;
-    justify-content: center;
-    font-size: 0;
   }
 
   .install-button {
