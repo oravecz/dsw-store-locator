@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getEdgeBackSwipeFeedback,
   isEdgeBackSwipe,
   openStoreNavigation,
   popStoreNavigation,
@@ -35,5 +36,35 @@ describe("store navigation", () => {
     expect(isEdgeBackSwipe({ x: 12, y: 240 }, { x: 100, y: 330 })).toBe(
       false,
     );
+  });
+
+  it("reports live progress and readiness for edge-swipe feedback", () => {
+    expect(
+      getEdgeBackSwipeFeedback({ x: 12, y: 240 }, { x: 48, y: 246 }),
+    ).toEqual({
+      active: true,
+      distance: 36,
+      progress: 0.5,
+      ready: false,
+    });
+
+    expect(
+      getEdgeBackSwipeFeedback({ x: 12, y: 240 }, { x: 96, y: 248 }),
+    ).toMatchObject({
+      active: true,
+      progress: 1,
+      ready: true,
+    });
+  });
+
+  it("keeps vertical and non-edge gestures from activating feedback", () => {
+    expect(
+      getEdgeBackSwipeFeedback({ x: 12, y: 240 }, { x: 34, y: 290 })
+        .active,
+    ).toBe(false);
+    expect(
+      getEdgeBackSwipeFeedback({ x: 46, y: 240 }, { x: 130, y: 244 })
+        .active,
+    ).toBe(false);
   });
 });

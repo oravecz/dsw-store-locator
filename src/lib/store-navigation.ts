@@ -3,6 +3,13 @@ export interface SwipePoint {
   y: number;
 }
 
+export interface EdgeBackSwipeFeedback {
+  active: boolean;
+  distance: number;
+  progress: number;
+  ready: boolean;
+}
+
 const edgeWidth = 32;
 const minimumSwipeDistance = 72;
 
@@ -20,13 +27,30 @@ export function pushStoreNavigation(
 export const popStoreNavigation = (history: string[]) =>
   history.slice(0, -1);
 
-export function isEdgeBackSwipe(start: SwipePoint, end: SwipePoint) {
-  const horizontalDistance = end.x - start.x;
-  const verticalDistance = Math.abs(end.y - start.y);
-
-  return (
-    start.x <= edgeWidth &&
+// @lat: [[dsw-store-locator#Store Navigation#Back Gesture Feedback]]
+export function getEdgeBackSwipeFeedback(
+  start: SwipePoint,
+  current: SwipePoint,
+): EdgeBackSwipeFeedback {
+  const horizontalDistance = current.x - start.x;
+  const verticalDistance = Math.abs(current.y - start.y);
+  const distance = Math.max(0, horizontalDistance);
+  const fromLeftEdge = start.x <= edgeWidth;
+  const horizontalIntent =
+    horizontalDistance > 0 && horizontalDistance > verticalDistance;
+  const ready =
+    fromLeftEdge &&
     horizontalDistance >= minimumSwipeDistance &&
-    horizontalDistance > verticalDistance * 1.25
-  );
+    horizontalDistance > verticalDistance * 1.25;
+
+  return {
+    active: fromLeftEdge && horizontalIntent,
+    distance,
+    progress: Math.min(distance / minimumSwipeDistance, 1),
+    ready,
+  };
+}
+
+export function isEdgeBackSwipe(start: SwipePoint, end: SwipePoint) {
+  return getEdgeBackSwipeFeedback(start, end).ready;
 }

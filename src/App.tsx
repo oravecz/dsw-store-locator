@@ -53,10 +53,12 @@ import {
 import { loadIssues, saveIssues } from "./lib/issues";
 import { searchStores } from "./lib/search";
 import {
+  getEdgeBackSwipeFeedback,
   isEdgeBackSwipe,
   openStoreNavigation,
   popStoreNavigation,
   pushStoreNavigation,
+  type EdgeBackSwipeFeedback,
   type SwipePoint,
 } from "./lib/store-navigation";
 import type {
@@ -164,6 +166,9 @@ function App() {
   const [campaignFormOpen, setCampaignFormOpen] = useState(false);
   const [campaignDeleteOpen, setCampaignDeleteOpen] = useState(false);
   const [campaignPickerRevealed, setCampaignPickerRevealed] = useState(false);
+  const [swipeBackFeedback, setSwipeBackFeedback] = useState<
+    (EdgeBackSwipeFeedback & { y: number }) | null
+  >(null);
   const detailPanelRef = useRef<HTMLElement>(null);
   const swipeStartRef = useRef<SwipePoint | null>(null);
   const campaignPullStartRef = useRef<SwipePoint | null>(null);
@@ -309,12 +314,28 @@ function App() {
     swipeStartRef.current = touch
       ? { x: touch.clientX, y: touch.clientY }
       : null;
+    setSwipeBackFeedback(null);
+  };
+
+  const handleDetailTouchMove = (event: TouchEvent<HTMLElement>) => {
+    const start = swipeStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+
+    const feedback = getEdgeBackSwipeFeedback(start, {
+      x: touch.clientX,
+      y: touch.clientY,
+    });
+    setSwipeBackFeedback(
+      feedback.active ? { ...feedback, y: touch.clientY } : null,
+    );
   };
 
   const handleDetailTouchEnd = (event: TouchEvent<HTMLElement>) => {
     const start = swipeStartRef.current;
     const touch = event.changedTouches[0];
     swipeStartRef.current = null;
+    setSwipeBackFeedback(null);
     if (
       start &&
       touch &&
@@ -819,11 +840,32 @@ function App() {
               aria-label="Selected store details"
               ref={detailPanelRef}
               onTouchStart={handleDetailTouchStart}
+              onTouchMove={handleDetailTouchMove}
               onTouchEnd={handleDetailTouchEnd}
               onTouchCancel={() => {
                 swipeStartRef.current = null;
+                setSwipeBackFeedback(null);
               }}
             >
+              {selectedStore && swipeBackFeedback && (
+                <div
+                  className={`swipe-back-feedback ${
+                    swipeBackFeedback.ready ? "is-ready" : ""
+                  }`}
+                  style={{
+                    top: `clamp(76px, ${swipeBackFeedback.y}px, calc(100vh - 76px))`,
+                    left: `${Math.round(
+                      -96 + swipeBackFeedback.progress * 108,
+                    )}px`,
+                  }}
+                  aria-hidden="true"
+                >
+                  <ArrowLeft size={19} />
+                  <span>
+                    {swipeBackFeedback.ready ? "Release" : "Back"}
+                  </span>
+                </div>
+              )}
               {selectedStore ? (
                 <StoreDetails
                   store={selectedStore}
