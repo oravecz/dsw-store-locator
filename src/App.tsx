@@ -192,6 +192,15 @@ function App() {
   }, [campaigns]);
 
   useEffect(() => {
+    if (!campaignFormOpen && !campaignDeleteOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [campaignDeleteOpen, campaignFormOpen]);
+
+  useEffect(() => {
     setStoreHistory([]);
     setSelectedAttentionKeys([]);
     setAttentionFilterOpen(false);
@@ -496,54 +505,61 @@ function App() {
       </section>
 
       {campaignFormOpen && (
-        <section className="campaign-form-panel">
-          <form id="campaign-form" onSubmit={addCampaign}>
-            <div className="campaign-form-heading">
-              <div>
-                <p className="eyebrow">New activation</p>
-                <h2>Add campaign</h2>
+        <div className="campaign-form-backdrop">
+          <section
+            className="campaign-form-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="campaign-form-title"
+          >
+            <form id="campaign-form" onSubmit={addCampaign}>
+              <div className="campaign-form-heading">
+                <div>
+                  <p className="eyebrow">New activation</p>
+                  <h2 id="campaign-form-title">Add campaign</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCampaignFormOpen(false)}
+                  aria-label="Close campaign form"
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setCampaignFormOpen(false)}
-                aria-label="Close campaign form"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <label>
-              <span>Title</span>
-              <input
-                name="campaign-name"
-                required
-                maxLength={80}
-                placeholder="e.g. Back-to-School Launch"
-                autoFocus
-              />
-            </label>
-            <label>
-              <span>Start date</span>
-              <input
-                name="campaign-start-date"
-                type="date"
-                required
-                defaultValue={today}
-              />
-            </label>
-            <div className="campaign-form-actions">
-              <button
-                className="secondary"
-                type="button"
-                onClick={() => setCampaignFormOpen(false)}
-              >
-                Cancel
-              </button>
-              <button className="primary" type="submit">
-                Add campaign
-              </button>
-            </div>
-          </form>
-        </section>
+              <label>
+                <span>Title</span>
+                <input
+                  name="campaign-name"
+                  required
+                  maxLength={80}
+                  placeholder="e.g. Back-to-School Launch"
+                  autoFocus
+                />
+              </label>
+              <label>
+                <span>Start date</span>
+                <input
+                  name="campaign-start-date"
+                  type="date"
+                  required
+                  defaultValue={today}
+                />
+              </label>
+              <div className="campaign-form-actions">
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => setCampaignFormOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button className="primary" type="submit">
+                  Add campaign
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
 
       {!campaign ? (

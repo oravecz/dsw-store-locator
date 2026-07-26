@@ -25,6 +25,8 @@
 
 html {
   scroll-behavior: smooth;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -46,11 +48,16 @@ input,
 select,
 textarea {
   font: inherit;
+  touch-action: manipulation;
 }
 
 button,
 select {
   cursor: pointer;
+}
+
+a {
+  touch-action: manipulation;
 }
 
 button:focus-visible,
@@ -263,21 +270,41 @@ a {
   content: "";
 }
 
-.campaign-form-panel {
-  padding: 16px max(20px, calc((100vw - 1180px) / 2));
-  background: var(--cream);
-  border-bottom: 1px solid var(--line);
+.campaign-form-backdrop {
+  position: fixed;
+  z-index: 110;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding:
+    calc(18px + env(safe-area-inset-top))
+    calc(14px + env(safe-area-inset-right))
+    calc(18px + env(safe-area-inset-bottom))
+    calc(14px + env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgb(23 18 15 / 68%);
+  -webkit-overflow-scrolling: touch;
 }
 
-.campaign-form-panel form {
+.campaign-form-modal {
+  width: min(650px, 100%);
+  max-height: calc(100vh - 36px);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  background: var(--white);
+  border: 2px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--yellow);
+  -webkit-overflow-scrolling: touch;
+}
+
+.campaign-form-modal form {
   display: grid;
-  grid-template-columns: minmax(230px, 1fr) minmax(180px, 0.55fr) auto;
+  grid-template-columns: minmax(230px, 1fr) minmax(180px, 0.65fr);
   gap: 14px;
   align-items: end;
-  padding: 17px;
+  padding: 22px;
   background: var(--white);
-  border: 1px solid var(--ink);
-  box-shadow: 4px 4px 0 var(--yellow);
 }
 
 .campaign-form-heading {
@@ -303,14 +330,14 @@ a {
   border: 0;
 }
 
-.campaign-form-panel label {
+.campaign-form-modal label {
   display: grid;
   gap: 7px;
   font-size: 12px;
   font-weight: 800;
 }
 
-.campaign-form-panel input {
+.campaign-form-modal input {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -320,7 +347,7 @@ a {
   border-radius: 0;
 }
 
-.campaign-form-panel input:focus {
+.campaign-form-modal input:focus {
   border-color: var(--ink);
   outline: 0;
   box-shadow: 3px 3px 0 var(--yellow);
@@ -328,7 +355,9 @@ a {
 
 .campaign-form-actions {
   display: flex;
+  grid-column: 1 / -1;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .campaign-form-actions button {
@@ -1383,15 +1412,6 @@ footer {
     width: calc(100% - 32px);
   }
 
-  .campaign-form-panel form {
-    grid-template-columns: 1fr 0.65fr;
-  }
-
-  .campaign-form-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-end;
-  }
-
   .workspace {
     grid-template-columns: minmax(310px, 0.85fr) minmax(390px, 1.15fr);
     width: calc(100% - 24px);
@@ -1441,16 +1461,19 @@ footer {
     min-height: 42px;
   }
 
-  .campaign-form-panel {
-    padding: 12px 14px;
+  input,
+  select,
+  textarea {
+    font-size: 16px;
   }
 
-  .campaign-form-panel form {
+  .campaign-form-modal form {
     grid-template-columns: 1fr;
+    padding: 18px;
   }
 
   .campaign-form-actions {
-    grid-column: auto;
+    grid-column: 1;
   }
 
   .campaign-heading {
