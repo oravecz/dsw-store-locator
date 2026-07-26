@@ -688,6 +688,23 @@ a {
   font-size: 20px;
 }
 
+.manager-title-edit {
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+}
+
+.manager-title-edit:hover {
+  color: var(--pink-dark);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
 .current-campaign-badge {
   display: inline-flex;
   gap: 4px;
@@ -881,6 +898,21 @@ a {
   font-size: clamp(32px, 5vw, 48px);
   letter-spacing: -0.025em;
   line-height: 1;
+}
+
+.campaign-title-edit {
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-align: left;
+}
+
+.campaign-title-edit:hover {
+  color: var(--pink-dark);
 }
 
 .campaign-subtitle {

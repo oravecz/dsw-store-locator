@@ -586,13 +586,22 @@ function App() {
       ) : (
         <>
           <section className="campaign-heading">
-            <h1>{campaign.name}</h1>
+            <h1>
+              <button
+                className="campaign-title-edit"
+                type="button"
+                onClick={() => openCampaignEditor(campaign)}
+                aria-label={`Edit campaign: ${campaign.name}`}
+              >
+                {campaign.name}
+              </button>
+            </h1>
             <div className="campaign-subtitle">
               <button
                 className="campaign-edit-trigger"
                 type="button"
                 onClick={() => openCampaignEditor(campaign)}
-                aria-label={`Edit ${campaign.name}`}
+                aria-label={`Edit start date for ${campaign.name}`}
               >
                 <CalendarDays size={16} />
                 Starts {formatDate(campaign.startDate)}

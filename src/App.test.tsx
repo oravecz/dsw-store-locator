@@ -26,7 +26,9 @@ describe("campaign store selection", () => {
       render(<App />);
 
       fireEvent.click(
-        screen.getByRole("button", { name: "Edit 35th Birthday" }),
+        screen.getByRole("button", {
+          name: "Edit campaign: 35th Birthday",
+        }),
       );
       expect(
         screen.getByRole("heading", { name: "Edit campaign" }),
@@ -122,7 +124,9 @@ describe("campaign store selection", () => {
     expect(screen.getByText("Current")).toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "493 stores selected" }),
+      screen.getByRole("button", {
+        name: "Edit campaign: 35th Birthday",
+      }),
     );
     expect(
       screen.getByRole("heading", { name: "Edit campaign" }),

@@ -70,7 +70,16 @@ export function CampaignManager({
                 Current
               </span>
             )}
-            <h3>{campaign.name}</h3>
+            <h3>
+              <button
+                className="manager-title-edit"
+                type="button"
+                onClick={() => onEdit(campaign)}
+                aria-label={`Edit campaign: ${campaign.name}`}
+              >
+                {campaign.name}
+              </button>
+            </h3>
             <span className="manager-campaign-date">
               <CalendarDays size={15} />
               Starts {formatDate(campaign.startDate)}
