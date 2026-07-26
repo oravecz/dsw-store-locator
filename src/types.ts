@@ -26,8 +26,13 @@ export interface Campaign {
   storeNumbers?: string[];
 }
 
-export type IssuePriority = "Low" | "Medium" | "High";
-export type IssueStatus = "Open" | "Resolved";
+export const ISSUE_STATUSES = [
+  "New",
+  "Reported",
+  "Resolved",
+  "Accepted",
+] as const;
+export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
 export interface CampaignIssue {
   id: string;
@@ -35,7 +40,6 @@ export interface CampaignIssue {
   storeNumber: string;
   summary: string;
   notes: string;
-  priority: IssuePriority;
   status: IssueStatus;
   createdAt: string;
 }

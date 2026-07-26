@@ -76,7 +76,6 @@ export function buildIssueExport(
     "ZIP",
     "What needs attention",
     "Notes",
-    "Priority",
     "Status",
     "Created",
   ];
@@ -101,7 +100,6 @@ export function buildIssueExport(
           store.zip,
           issue?.summary ?? "",
           issue?.notes ?? "",
-          issue?.priority ?? "",
           issue?.status ?? "",
           issue?.createdAt ?? "",
         ]

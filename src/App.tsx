@@ -53,7 +53,11 @@ import {
   normalizeAttention,
   type AttentionOption,
 } from "./lib/issue-tools";
-import { loadIssues, saveIssues } from "./lib/issues";
+import {
+  isCompletedIssueStatus,
+  loadIssues,
+  saveIssues,
+} from "./lib/issues";
 import { searchStores } from "./lib/search";
 import {
   getEdgeBackSwipeFeedback,
@@ -64,11 +68,12 @@ import {
   type EdgeBackSwipeFeedback,
   type SwipePoint,
 } from "./lib/store-navigation";
-import type {
-  Campaign,
-  CampaignIssue,
-  IssuePriority,
-  Store,
+import {
+  ISSUE_STATUSES,
+  type Campaign,
+  type CampaignIssue,
+  type IssueStatus,
+  type Store,
 } from "./types";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -124,10 +129,11 @@ function CampaignOptionGroups({
   );
 }
 
-const priorityOrder: Record<IssuePriority, number> = {
-  High: 0,
-  Medium: 1,
-  Low: 2,
+const statusOrder: Record<IssueStatus, number> = {
+  New: 0,
+  Reported: 1,
+  Resolved: 2,
+  Accepted: 3,
 };
 
 const fullAddress = (store: Store) =>
@@ -288,7 +294,7 @@ function App() {
   const issueCounts = useMemo(
     () =>
       campaignIssues.reduce<Record<string, number>>((counts, issue) => {
-        if (issue.status === "Open") {
+        if (!isCompletedIssueStatus(issue.status)) {
           counts[issue.storeNumber] = (counts[issue.storeNumber] ?? 0) + 1;
         }
         return counts;
@@ -384,14 +390,14 @@ function App() {
       attentionSuggestions,
     );
     const notes = String(data.get("notes") ?? "").trim();
-    const priority = String(data.get("priority") ?? "Medium") as IssuePriority;
+    const status = String(data.get("status") ?? "New") as IssueStatus;
     if (!summary) return;
 
     setIssues((current) => {
       if (editingIssueId) {
         return current.map((issue) =>
           issue.id === editingIssueId
-            ? { ...issue, summary, notes, priority }
+            ? { ...issue, summary, notes, status }
             : issue,
         );
       }
@@ -403,8 +409,7 @@ function App() {
           storeNumber: selectedStore.storeNumber,
           summary,
           notes,
-          priority,
-          status: "Open",
+          status,
           createdAt: new Date().toISOString(),
         },
         ...current,
@@ -420,7 +425,9 @@ function App() {
         issue.id === id
           ? {
               ...issue,
-              status: issue.status === "Open" ? "Resolved" : "Open",
+              status: isCompletedIssueStatus(issue.status)
+                ? "New"
+                : "Resolved",
             }
           : issue,
       ),
@@ -610,7 +617,14 @@ function App() {
         {campaign && (
           <div className="campaign-stats">
             <span>{campaignStores.length} stores</span>
-            <span>{campaignIssues.filter((issue) => issue.status === "Open").length} open issues</span>
+            <span>
+              {
+                campaignIssues.filter(
+                  (issue) => !isCompletedIssueStatus(issue.status),
+                ).length
+              }{" "}
+              open issues
+            </span>
           </div>
         )}
       </section>
@@ -974,9 +988,7 @@ function StoreDetails({
         .filter((issue) => issue.storeNumber === store.storeNumber)
         .sort(
           (left, right) =>
-            Number(left.status === "Resolved") -
-              Number(right.status === "Resolved") ||
-            priorityOrder[left.priority] - priorityOrder[right.priority] ||
+            statusOrder[left.status] - statusOrder[right.status] ||
             right.createdAt.localeCompare(left.createdAt),
         ),
     [issues, store.storeNumber],
@@ -1056,14 +1068,14 @@ function StoreDetails({
               />
             </label>
             <label>
-              <span>Priority</span>
+              <span>Status</span>
               <select
-                name="priority"
-                defaultValue={editingIssue?.priority ?? "Medium"}
+                name="status"
+                defaultValue={editingIssue?.status ?? "New"}
               >
-                <option>Low</option>
-                <option>Medium</option>
-                <option>High</option>
+                {ISSUE_STATUSES.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
               </select>
             </label>
             <div className="form-actions">
@@ -1082,7 +1094,7 @@ function StoreDetails({
             storeIssues.map((issue) => (
               <article
                 className={`issue-card ${
-                  issue.status === "Resolved" ? "resolved" : ""
+                  isCompletedIssueStatus(issue.status) ? "closed" : ""
                 }`}
                 key={issue.id}
               >
@@ -1091,12 +1103,12 @@ function StoreDetails({
                   type="button"
                   onClick={() => onToggleIssue(issue.id)}
                   aria-label={
-                    issue.status === "Open"
-                      ? `Mark ${issue.summary} resolved`
-                      : `Reopen ${issue.summary}`
+                    isCompletedIssueStatus(issue.status)
+                      ? `Reopen ${issue.summary}`
+                      : `Mark ${issue.summary} resolved`
                   }
                 >
-                  {issue.status === "Resolved" ? (
+                  {isCompletedIssueStatus(issue.status) ? (
                     <Check size={16} />
                   ) : (
                     <CircleAlert size={16} />
@@ -1104,10 +1116,11 @@ function StoreDetails({
                 </button>
                 <div className="issue-copy">
                   <div className="issue-meta">
-                    <span className={`priority ${issue.priority.toLowerCase()}`}>
-                      {issue.priority}
+                    <span
+                      className={`issue-status ${issue.status.toLowerCase()}`}
+                    >
+                      {issue.status}
                     </span>
-                    <span>{issue.status}</span>
                     <span>{formatDate(issue.createdAt)}</span>
                   </div>
                   <strong>{issue.summary}</strong>

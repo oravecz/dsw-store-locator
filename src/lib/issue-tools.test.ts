@@ -36,8 +36,7 @@ const issue = (
   storeNumber,
   summary,
   notes: "Front window",
-  priority: "High",
-  status: "Open",
+  status: "Reported",
   createdAt: "2026-07-26T12:00:00.000Z",
 });
 
@@ -84,6 +83,9 @@ describe("issue tools", () => {
 
     expect(text).toContain(
       "Store number\tMall name\tAddress\tCity\tState\tZIP",
+    );
+    expect(text).toContain(
+      "What needs attention\tNotes\tStatus\tCreated",
     );
     expect(text).toContain(
       "9051\tDublin-Sawmill\t100 Main Street\tColumbus\tOH\t43000\tWindow decal",

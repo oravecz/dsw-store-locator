@@ -1491,12 +1491,12 @@ a {
   border-left: 4px solid var(--pink);
 }
 
-.issue-card.resolved {
+.issue-card.closed {
   opacity: 0.66;
   border-left-color: #77ad89;
 }
 
-.issue-card.resolved .issue-copy > strong {
+.issue-card.closed .issue-copy > strong {
   text-decoration: line-through;
 }
 
@@ -1519,7 +1519,7 @@ a {
   gap: 2px;
 }
 
-.issue-card.resolved .status-toggle {
+.issue-card.closed .status-toggle {
   color: #247344;
   background: #e7f7ed;
   border-color: #a8d2b7;
@@ -1570,16 +1570,38 @@ a {
   font-weight: 800;
 }
 
-.priority {
+.issue-status {
+  padding: 3px 6px;
   color: var(--ink);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.priority.high {
+.issue-status.new {
   color: #9d1539;
+  background: #fff0f4;
+  border-color: #f5b4c5;
 }
 
-.priority.low {
+.issue-status.reported {
+  color: #765400;
+  background: #fff7d8;
+  border-color: #e7c75d;
+}
+
+.issue-status.resolved {
   color: #247344;
+  background: #e7f7ed;
+  border-color: #a8d2b7;
+}
+
+.issue-status.accepted {
+  color: var(--ink);
+  background: var(--mint);
+  border-color: #94c9bb;
 }
 
 .five-badge {
