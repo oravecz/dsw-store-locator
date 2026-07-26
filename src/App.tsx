@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  CalendarDays,
   Check,
   ChevronRight,
   CircleAlert,
@@ -29,6 +30,13 @@ import {
   useState,
 } from "react";
 import storesData from "./data/stores.json";
+import {
+  dateInputValue,
+  groupCampaigns,
+  loadCampaigns,
+  saveCampaigns,
+  selectInitialCampaign,
+} from "./lib/campaigns";
 import { nearestStores } from "./lib/distance";
 import {
   buildIssueExport,
@@ -54,14 +62,6 @@ interface BeforeInstallPromptEvent extends Event {
 
 const stores = storesData as Store[];
 
-const campaigns: Campaign[] = [
-  {
-    id: "35th-birthday",
-    name: "35th Birthday",
-    kicker: "Celebrate every step",
-  },
-];
-
 function BrandLockup({ className = "" }: { className?: string }) {
   return (
     <span className={`brand-lockup ${className}`.trim()}>
@@ -73,6 +73,35 @@ function BrandLockup({ className = "" }: { className?: string }) {
       />
       <span>Activations</span>
     </span>
+  );
+}
+
+function CampaignOptionGroups({
+  groups,
+}: {
+  groups: ReturnType<typeof groupCampaigns>;
+}) {
+  return (
+    <>
+      {groups.currentAndUpcoming.length > 0 && (
+        <optgroup label="Current & upcoming">
+          {groups.currentAndUpcoming.map((campaign) => (
+            <option key={campaign.id} value={campaign.id}>
+              {campaign.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {groups.archived.length > 0 && (
+        <optgroup label="Archived">
+          {groups.archived.map((campaign) => (
+            <option key={campaign.id} value={campaign.id}>
+              {campaign.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </>
   );
 }
 
@@ -99,8 +128,11 @@ const formatDate = (value: string) =>
   }).format(new Date(`${value.slice(0, 10)}T12:00:00`));
 
 function App() {
-  const [campaignId, setCampaignId] = useState(
-    () => window.localStorage.getItem("dsw:selected-campaign") ?? "",
+  const [today] = useState(dateInputValue);
+  const [initialCampaigns] = useState(loadCampaigns);
+  const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
+  const [campaignId, setCampaignId] = useState(() =>
+    selectInitialCampaign(initialCampaigns, today),
   );
   const [query, setQuery] = useState("");
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
@@ -115,6 +147,8 @@ function App() {
     [],
   );
   const [exportStatus, setExportStatus] = useState("");
+  const [campaignFormOpen, setCampaignFormOpen] = useState(false);
+  const [campaignDeleteOpen, setCampaignDeleteOpen] = useState(false);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -140,19 +174,23 @@ function App() {
   }, [issues]);
 
   useEffect(() => {
-    if (campaignId) {
-      window.localStorage.setItem("dsw:selected-campaign", campaignId);
-    } else {
-      window.localStorage.removeItem("dsw:selected-campaign");
-      setSelectedStore(null);
-    }
+    saveCampaigns(campaigns);
+  }, [campaigns]);
+
+  useEffect(() => {
+    if (!campaignId) setSelectedStore(null);
     setSelectedAttentionKeys([]);
     setAttentionFilterOpen(false);
     setEditingIssueId(null);
     setFormOpen(false);
+    setCampaignDeleteOpen(false);
   }, [campaignId]);
 
   const campaign = campaigns.find((item) => item.id === campaignId) ?? null;
+  const campaignGroups = useMemo(
+    () => groupCampaigns(campaigns, today),
+    [campaigns, today],
+  );
   const searchResults = useMemo(
     () => searchStores(stores, query, stores.length),
     [query],
@@ -266,6 +304,40 @@ function App() {
     if (editingIssueId === id) closeIssueForm();
   };
 
+  const addCampaign = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const name = String(data.get("campaign-name") ?? "").trim();
+    const startDate = String(data.get("campaign-start-date") ?? "");
+    if (!name || !startDate) return;
+
+    const newCampaign: Campaign = {
+      id: crypto.randomUUID(),
+      name,
+      startDate,
+    };
+    setCampaigns((current) => [...current, newCampaign]);
+    setCampaignId(newCampaign.id);
+    setCampaignFormOpen(false);
+    event.currentTarget.reset();
+  };
+
+  const confirmDeleteCampaign = () => {
+    if (!campaign) return;
+
+    const remaining = campaigns.filter((item) => item.id !== campaign.id);
+    setCampaigns(remaining);
+    setIssues((current) =>
+      current.filter((issue) => issue.campaignId !== campaign.id),
+    );
+    setCampaignDeleteOpen(false);
+    setCampaignId(selectInitialCampaign(remaining, today));
+  };
+
+  const campaignIssueCount = campaign
+    ? issues.filter((issue) => issue.campaignId === campaign.id).length
+    : 0;
+
   const toggleAttentionFilter = (key: string) => {
     setSelectedAttentionKeys((current) =>
       current.includes(key)
@@ -326,21 +398,29 @@ function App() {
 
       <section className="campaign-strip" id="top">
         <label htmlFor="campaign">Active campaign</label>
-        <div className="select-wrap">
-          <Flag size={18} aria-hidden="true" />
-          <select
-            id="campaign"
-            value={campaignId}
-            onChange={(event) => setCampaignId(event.target.value)}
+        <div className="campaign-picker">
+          <div className="select-wrap">
+            <Flag size={18} aria-hidden="true" />
+            <select
+              id="campaign"
+              value={campaignId}
+              onChange={(event) => setCampaignId(event.target.value)}
+            >
+              <option value="">Choose a campaign</option>
+              <CampaignOptionGroups groups={campaignGroups} />
+            </select>
+            <ChevronRight size={18} aria-hidden="true" />
+          </div>
+          <button
+            className="add-campaign-button"
+            type="button"
+            onClick={() => setCampaignFormOpen((current) => !current)}
+            aria-label="Add campaign"
+            aria-expanded={campaignFormOpen}
+            aria-controls="campaign-form"
           >
-            <option value="">Choose a campaign</option>
-            {campaigns.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-          <ChevronRight size={18} aria-hidden="true" />
+            <Plus size={19} />
+          </button>
         </div>
         {campaign && (
           <div className="campaign-stats">
@@ -349,6 +429,57 @@ function App() {
           </div>
         )}
       </section>
+
+      {campaignFormOpen && (
+        <section className="campaign-form-panel">
+          <form id="campaign-form" onSubmit={addCampaign}>
+            <div className="campaign-form-heading">
+              <div>
+                <p className="eyebrow">New activation</p>
+                <h2>Add campaign</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCampaignFormOpen(false)}
+                aria-label="Close campaign form"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <label>
+              <span>Title</span>
+              <input
+                name="campaign-name"
+                required
+                maxLength={80}
+                placeholder="e.g. Back-to-School Launch"
+                autoFocus
+              />
+            </label>
+            <label>
+              <span>Start date</span>
+              <input
+                name="campaign-start-date"
+                type="date"
+                required
+                defaultValue={today}
+              />
+            </label>
+            <div className="campaign-form-actions">
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setCampaignFormOpen(false)}
+              >
+                Cancel
+              </button>
+              <button className="primary" type="submit">
+                Add campaign
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       {!campaign ? (
         <main className="welcome">
@@ -367,28 +498,27 @@ function App() {
               onChange={(event) => setCampaignId(event.target.value)}
             >
               <option value="">Select campaign</option>
-              {campaigns.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+              <CampaignOptionGroups groups={campaignGroups} />
             </select>
           </label>
         </main>
       ) : (
         <>
-          <section className="campaign-hero">
-            <div>
-              <p className="eyebrow">{campaign.kicker}</p>
-              <h1>
-                <span>35</span>
-                <small>th</small> Birthday
-              </h1>
+          <section className="campaign-heading">
+            <h1>{campaign.name}</h1>
+            <div className="campaign-subtitle">
+              <span>
+                <CalendarDays size={16} />
+                Starts {formatDate(campaign.startDate)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCampaignDeleteOpen(true)}
+              >
+                <Trash2 size={15} />
+                Delete campaign
+              </button>
             </div>
-            <p>
-              Find a store, capture what needs attention, and keep the
-              celebration moving.
-            </p>
           </section>
 
           <main className={`workspace ${selectedStore ? "has-selection" : ""}`}>
@@ -570,6 +700,47 @@ function App() {
             </section>
           </main>
         </>
+      )}
+
+      {campaign && campaignDeleteOpen && (
+        <div className="confirm-backdrop">
+          <section
+            className="campaign-confirm"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-campaign-title"
+            aria-describedby="delete-campaign-description"
+          >
+            <div className="confirm-icon">
+              <Trash2 size={22} />
+            </div>
+            <h2 id="delete-campaign-title">Delete {campaign.name}?</h2>
+            <p id="delete-campaign-description">
+              This cannot be undone.
+              {campaignIssueCount > 0 &&
+                ` ${campaignIssueCount} campaign log ${
+                  campaignIssueCount === 1 ? "entry" : "entries"
+                } will also be deleted.`}
+            </p>
+            <div className="confirm-actions">
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setCampaignDeleteOpen(false)}
+                autoFocus
+              >
+                Cancel
+              </button>
+              <button
+                className="danger"
+                type="button"
+                onClick={confirmDeleteCampaign}
+              >
+                Delete campaign
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
       <footer>

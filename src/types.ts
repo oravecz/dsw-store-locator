@@ -22,7 +22,7 @@ export interface Store {
 export interface Campaign {
   id: string;
   name: string;
-  kicker: string;
+  startDate: string;
 }
 
 export type IssuePriority = "Low" | "Medium" | "High";

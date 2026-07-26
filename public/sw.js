@@ -1,5 +1,5 @@
 const basePath = "/dsw-store-locator/";
-const cacheName = "dsw-activations-v3";
+const cacheName = "dsw-activations-v4";
 const appShell = [
   basePath,
   `${basePath}assets/app.js`,

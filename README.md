@@ -7,6 +7,9 @@ the first successful visit.
 ## What it does
 
 - Starts with a campaign selector and includes the **35th Birthday** campaign.
+- Adds and deletes activation campaigns with persisted titles and start dates.
+- Selects today’s activation or the nearest upcoming one when the app opens.
+- Groups campaigns more than seven days old under a newest-first archive.
 - Searches every store field with partial matches ranked ahead of fuzzy matches.
 - Ranks partial matches by store number, ZIP, mall name, then address.
 - Shows complete store details and a Google Maps directions link.
