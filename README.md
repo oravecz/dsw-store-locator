@@ -14,6 +14,8 @@ the first successful visit.
 - Ranks partial matches by store number, ZIP, mall name, then address.
 - Shows complete store details and a Google Maps directions link.
 - Lists the five closest stores using precomputed geographic coordinates.
+- Stacks nearest-store selections with top back navigation and a mobile
+  right-swipe-from-edge gesture.
 - Adds, edits, resolves, reopens, and deletes campaign issues on the current device.
 - Filters stores by one or more prior “What needs attention” values.
 - Copies the filtered stores and their issue details as tab-separated clipboard data.

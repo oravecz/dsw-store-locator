@@ -25,8 +25,10 @@ import {
 } from "lucide-react";
 import {
   type FormEvent,
+  type TouchEvent,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import storesData from "./data/stores.json";
@@ -48,6 +50,13 @@ import {
 } from "./lib/issue-tools";
 import { loadIssues, saveIssues } from "./lib/issues";
 import { searchStores } from "./lib/search";
+import {
+  isEdgeBackSwipe,
+  openStoreNavigation,
+  popStoreNavigation,
+  pushStoreNavigation,
+  type SwipePoint,
+} from "./lib/store-navigation";
 import type {
   Campaign,
   CampaignIssue,
@@ -61,6 +70,9 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const stores = storesData as Store[];
+const storesByNumber = new Map(
+  stores.map((store) => [store.storeNumber, store]),
+);
 
 function BrandLockup({ className = "" }: { className?: string }) {
   return (
@@ -135,7 +147,7 @@ function App() {
     selectInitialCampaign(initialCampaigns, today),
   );
   const [query, setQuery] = useState("");
-  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [storeHistory, setStoreHistory] = useState<string[]>([]);
   const [issues, setIssues] = useState<CampaignIssue[]>(loadIssues);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [installPrompt, setInstallPrompt] =
@@ -149,6 +161,8 @@ function App() {
   const [exportStatus, setExportStatus] = useState("");
   const [campaignFormOpen, setCampaignFormOpen] = useState(false);
   const [campaignDeleteOpen, setCampaignDeleteOpen] = useState(false);
+  const detailPanelRef = useRef<HTMLElement>(null);
+  const swipeStartRef = useRef<SwipePoint | null>(null);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -178,7 +192,7 @@ function App() {
   }, [campaigns]);
 
   useEffect(() => {
-    if (!campaignId) setSelectedStore(null);
+    setStoreHistory([]);
     setSelectedAttentionKeys([]);
     setAttentionFilterOpen(false);
     setEditingIssueId(null);
@@ -187,6 +201,14 @@ function App() {
   }, [campaignId]);
 
   const campaign = campaigns.find((item) => item.id === campaignId) ?? null;
+  const selectedStoreNumber = storeHistory.at(-1);
+  const selectedStore = selectedStoreNumber
+    ? storesByNumber.get(selectedStoreNumber) ?? null
+    : null;
+  const previousStore =
+    storeHistory.length > 1
+      ? storesByNumber.get(storeHistory.at(-2) ?? "") ?? null
+      : null;
   const campaignGroups = useMemo(
     () => groupCampaigns(campaigns, today),
     [campaigns, today],
@@ -229,11 +251,54 @@ function App() {
   const editingIssue =
     issues.find((issue) => issue.id === editingIssueId) ?? null;
 
-  const selectStore = (store: Store) => {
-    setSelectedStore(store);
+  const scrollStoreViewTop = () => {
+    window.requestAnimationFrame(() => {
+      detailPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  };
+
+  const openStore = (store: Store) => {
+    setStoreHistory(openStoreNavigation(store.storeNumber));
     setFormOpen(false);
     setEditingIssueId(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollStoreViewTop();
+  };
+
+  const pushStore = (store: Store) => {
+    setStoreHistory((current) =>
+      pushStoreNavigation(current, store.storeNumber),
+    );
+    setFormOpen(false);
+    setEditingIssueId(null);
+    scrollStoreViewTop();
+  };
+
+  const navigateBack = () => {
+    setStoreHistory(popStoreNavigation);
+    setFormOpen(false);
+    setEditingIssueId(null);
+    scrollStoreViewTop();
+  };
+
+  const handleDetailTouchStart = (event: TouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+    swipeStartRef.current = touch
+      ? { x: touch.clientX, y: touch.clientY }
+      : null;
+  };
+
+  const handleDetailTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const start = swipeStartRef.current;
+    const touch = event.changedTouches[0];
+    swipeStartRef.current = null;
+    if (
+      start &&
+      touch &&
+      isEdgeBackSwipe(start, { x: touch.clientX, y: touch.clientY })
+    ) {
+      navigateBack();
+    }
   };
 
   const openIssueForm = (issue?: CampaignIssue) => {
@@ -639,7 +704,7 @@ function App() {
                         }`}
                         key={store.storeNumber}
                         type="button"
-                        onClick={() => selectStore(store)}
+                        onClick={() => openStore(store)}
                       >
                         <span className="store-number">#{store.storeNumber}</span>
                         <span className="store-row-copy">
@@ -668,7 +733,16 @@ function App() {
               </div>
             </section>
 
-            <section className="detail-panel" aria-label="Selected store details">
+            <section
+              className="detail-panel"
+              aria-label="Selected store details"
+              ref={detailPanelRef}
+              onTouchStart={handleDetailTouchStart}
+              onTouchEnd={handleDetailTouchEnd}
+              onTouchCancel={() => {
+                swipeStartRef.current = null;
+              }}
+            >
               {selectedStore ? (
                 <StoreDetails
                   store={selectedStore}
@@ -677,8 +751,9 @@ function App() {
                   formOpen={formOpen}
                   editingIssue={editingIssue}
                   attentionSuggestions={attentionSuggestions}
-                  onBack={() => setSelectedStore(null)}
-                  onSelectStore={selectStore}
+                  backLabel={previousStore?.mallName ?? "All stores"}
+                  onBack={navigateBack}
+                  onSelectStore={pushStore}
                   onOpenForm={openIssueForm}
                   onCloseForm={closeIssueForm}
                   onSaveIssue={saveIssue}
@@ -755,6 +830,7 @@ interface StoreDetailsProps {
   store: Store;
   stores: Store[];
   issues: CampaignIssue[];
+  backLabel: string;
   formOpen: boolean;
   editingIssue: CampaignIssue | null;
   attentionSuggestions: AttentionOption[];
@@ -771,6 +847,7 @@ function StoreDetails({
   store,
   stores,
   issues,
+  backLabel,
   formOpen,
   editingIssue,
   attentionSuggestions,
@@ -802,9 +879,16 @@ function StoreDetails({
 
   return (
     <div className="store-detail">
-      <button className="mobile-back" type="button" onClick={onBack}>
+      <button
+        className="detail-back"
+        type="button"
+        onClick={onBack}
+        aria-label={`Back to ${
+          backLabel === "All stores" ? "all stores" : backLabel
+        }`}
+      >
         <ArrowLeft size={18} />
-        All stores
+        <span>{backLabel}</span>
       </button>
 
       <section className="issues-section campaign-log">
