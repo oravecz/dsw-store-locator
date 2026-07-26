@@ -30,9 +30,14 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  CampaignFormModal,
+  type CampaignDraft,
+} from "./components/CampaignFormModal";
 import storesData from "./data/stores.json";
 import {
   dateInputValue,
+  filterStoresForCampaign,
   groupCampaigns,
   loadCampaigns,
   saveCampaigns,
@@ -161,6 +166,9 @@ function App() {
   );
   const [exportStatus, setExportStatus] = useState("");
   const [campaignFormOpen, setCampaignFormOpen] = useState(false);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(
+    null,
+  );
   const [campaignDeleteOpen, setCampaignDeleteOpen] = useState(false);
   const [campaignPickerRevealed, setCampaignPickerRevealed] = useState(false);
   const [swipeBackFeedback, setSwipeBackFeedback] = useState<
@@ -208,6 +216,8 @@ function App() {
     setFormOpen(false);
     setCampaignDeleteOpen(false);
     setCampaignPickerRevealed(false);
+    setCampaignFormOpen(false);
+    setEditingCampaignId(null);
   }, [campaignId]);
 
   useEffect(() => {
@@ -220,6 +230,17 @@ function App() {
   }, [campaignPickerRevealed]);
 
   const campaign = campaigns.find((item) => item.id === campaignId) ?? null;
+  const campaignFormCampaign = editingCampaignId
+    ? campaigns.find((item) => item.id === editingCampaignId) ?? null
+    : null;
+  const campaignStores = useMemo(
+    () => filterStoresForCampaign(campaign, stores),
+    [campaign],
+  );
+  const campaignStoreNumberSet = useMemo(
+    () => new Set(campaignStores.map((store) => store.storeNumber)),
+    [campaignStores],
+  );
   const selectedStoreNumber = storeHistory.at(-1);
   const selectedStore = selectedStoreNumber
     ? storesByNumber.get(selectedStoreNumber) ?? null
@@ -233,12 +254,19 @@ function App() {
     [campaigns, today],
   );
   const searchResults = useMemo(
-    () => searchStores(stores, query, stores.length),
-    [query],
+    () => searchStores(campaignStores, query, campaignStores.length),
+    [campaignStores, query],
   );
-  const campaignIssues = useMemo(
+  const allCampaignIssues = useMemo(
     () => issues.filter((issue) => issue.campaignId === campaignId),
     [campaignId, issues],
+  );
+  const campaignIssues = useMemo(
+    () =>
+      allCampaignIssues.filter((issue) =>
+        campaignStoreNumberSet.has(issue.storeNumber),
+      ),
+    [allCampaignIssues, campaignStoreNumberSet],
   );
   const attentionSuggestions = useMemo(
     () => getAttentionOptions(issues),
@@ -404,23 +432,41 @@ function App() {
     if (editingIssueId === id) closeIssueForm();
   };
 
-  const addCampaign = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const name = String(data.get("campaign-name") ?? "").trim();
-    const startDate = String(data.get("campaign-start-date") ?? "");
-    if (!name || !startDate) return;
-
-    const newCampaign: Campaign = {
-      id: crypto.randomUUID(),
-      name,
-      startDate,
-    };
-    setCampaigns((current) => [...current, newCampaign]);
-    setCampaignId(newCampaign.id);
+  const openCampaignForm = (campaignToEdit?: Campaign) => {
+    setEditingCampaignId(campaignToEdit?.id ?? null);
     setCampaignPickerRevealed(false);
+    setCampaignFormOpen(true);
+  };
+
+  const closeCampaignForm = () => {
     setCampaignFormOpen(false);
-    event.currentTarget.reset();
+    setEditingCampaignId(null);
+  };
+
+  const saveCampaign = (draft: CampaignDraft) => {
+    if (campaignFormCampaign) {
+      setCampaigns((current) =>
+        current.map((item) =>
+          item.id === campaignFormCampaign.id ? { ...item, ...draft } : item,
+        ),
+      );
+      if (campaignFormCampaign.id === campaignId) {
+        setStoreHistory([]);
+        setSelectedAttentionKeys([]);
+        setAttentionFilterOpen(false);
+        setEditingIssueId(null);
+        setFormOpen(false);
+      }
+    } else {
+      const newCampaign: Campaign = {
+        id: crypto.randomUUID(),
+        ...draft,
+      };
+      setCampaigns((current) => [...current, newCampaign]);
+      setCampaignId(newCampaign.id);
+    }
+
+    closeCampaignForm();
   };
 
   const confirmDeleteCampaign = () => {
@@ -435,9 +481,7 @@ function App() {
     setCampaignId(selectInitialCampaign(remaining, today));
   };
 
-  const campaignIssueCount = campaign
-    ? issues.filter((issue) => issue.campaignId === campaign.id).length
-    : 0;
+  const campaignIssueCount = campaign ? allCampaignIssues.length : 0;
 
   const toggleAttentionFilter = (key: string) => {
     setSelectedAttentionKeys((current) =>
@@ -555,10 +599,7 @@ function App() {
           <button
             className="add-campaign-button"
             type="button"
-            onClick={() => {
-              setCampaignPickerRevealed(false);
-              setCampaignFormOpen((current) => !current);
-            }}
+            onClick={() => openCampaignForm()}
             aria-label="Add campaign"
             aria-expanded={campaignFormOpen}
             aria-controls="campaign-form"
@@ -568,68 +609,22 @@ function App() {
         </div>
         {campaign && (
           <div className="campaign-stats">
-            <span>{stores.length} stores</span>
+            <span>{campaignStores.length} stores</span>
             <span>{campaignIssues.filter((issue) => issue.status === "Open").length} open issues</span>
           </div>
         )}
       </section>
 
       {campaignFormOpen && (
-        <div className="campaign-form-backdrop">
-          <section
-            className="campaign-form-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="campaign-form-title"
-          >
-            <form id="campaign-form" onSubmit={addCampaign}>
-              <div className="campaign-form-heading">
-                <div>
-                  <p className="eyebrow">New activation</p>
-                  <h2 id="campaign-form-title">Add campaign</h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCampaignFormOpen(false)}
-                  aria-label="Close campaign form"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <label>
-                <span>Title</span>
-                <input
-                  name="campaign-name"
-                  required
-                  maxLength={80}
-                  placeholder="e.g. Back-to-School Launch"
-                  autoFocus
-                />
-              </label>
-              <label>
-                <span>Start date</span>
-                <input
-                  name="campaign-start-date"
-                  type="date"
-                  required
-                  defaultValue={today}
-                />
-              </label>
-              <div className="campaign-form-actions">
-                <button
-                  className="secondary"
-                  type="button"
-                  onClick={() => setCampaignFormOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button className="primary" type="submit">
-                  Add campaign
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+        <CampaignFormModal
+          key={campaignFormCampaign?.id ?? "new-campaign"}
+          campaign={campaignFormCampaign}
+          campaigns={campaigns}
+          stores={stores}
+          today={today}
+          onClose={closeCampaignForm}
+          onSave={saveCampaign}
+        />
       )}
 
       {!campaign ? (
@@ -658,11 +653,17 @@ function App() {
           <section className="campaign-heading">
             <h1>{campaign.name}</h1>
             <div className="campaign-subtitle">
-              <span>
+              <button
+                className="campaign-edit-trigger"
+                type="button"
+                onClick={() => openCampaignForm(campaign)}
+                aria-label={`Edit ${campaign.name}`}
+              >
                 <CalendarDays size={16} />
                 Starts {formatDate(campaign.startDate)}
-              </span>
+              </button>
               <button
+                className="campaign-delete-button"
                 type="button"
                 onClick={() => setCampaignDeleteOpen(true)}
               >
@@ -853,7 +854,7 @@ function App() {
               {selectedStore ? (
                 <StoreDetails
                   store={selectedStore}
-                  stores={stores}
+                  stores={campaignStores}
                   issues={campaignIssues}
                   formOpen={formOpen}
                   editingIssue={editingIssue}
@@ -1215,31 +1216,43 @@ function StoreDetails({
             <p className="eyebrow">In the neighborhood</p>
             <h3>Closest stores</h3>
           </div>
-          <span className="five-badge">Next 5</span>
+          <span className="five-badge">
+            {nearby.length ? `Next ${nearby.length}` : "Campaign scope"}
+          </span>
         </div>
         <div className="nearby-list">
-          {nearby.map(({ store: nearbyStore, distance }) => (
-            <button
-              key={nearbyStore.storeNumber}
-              type="button"
-              onClick={() => onSelectStore(nearbyStore)}
-            >
-              <span className="nearby-distance">{formatDistance(distance)}</span>
-              <span>
-                <strong>{nearbyStore.mallName}</strong>
-                <small>
-                  #{nearbyStore.storeNumber} · {nearbyStore.city},{" "}
-                  {nearbyStore.state}
-                </small>
-              </span>
-              <ChevronRight size={18} />
-            </button>
-          ))}
+          {nearby.length ? (
+            nearby.map(({ store: nearbyStore, distance }) => (
+              <button
+                key={nearbyStore.storeNumber}
+                type="button"
+                onClick={() => onSelectStore(nearbyStore)}
+              >
+                <span className="nearby-distance">
+                  {formatDistance(distance)}
+                </span>
+                <span>
+                  <strong>{nearbyStore.mallName}</strong>
+                  <small>
+                    #{nearbyStore.storeNumber} · {nearbyStore.city},{" "}
+                    {nearbyStore.state}
+                  </small>
+                </span>
+                <ChevronRight size={18} />
+              </button>
+            ))
+          ) : (
+            <p className="nearby-empty">
+              No other stores are selected for this campaign.
+            </p>
+          )}
         </div>
-        <p className="coordinate-note">
-          Distances use Census address coordinates when available and ZIP-area
-          centers otherwise.
-        </p>
+        {nearby.length > 0 && (
+          <p className="coordinate-note">
+            Distances use Census address coordinates when available and ZIP-area
+            centers otherwise.
+          </p>
+        )}
       </section>
     </div>
   );

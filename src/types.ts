@@ -23,6 +23,7 @@ export interface Campaign {
   id: string;
   name: string;
   startDate: string;
+  storeNumbers?: string[];
 }
 
 export type IssuePriority = "Low" | "Medium" | "High";

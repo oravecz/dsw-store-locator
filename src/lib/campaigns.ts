@@ -1,4 +1,4 @@
-import type { Campaign } from "../types";
+import type { Campaign, Store } from "../types";
 
 const storageKey = "dsw-activations:campaigns:v1";
 
@@ -19,7 +19,12 @@ const isCampaign = (value: unknown): value is Campaign => {
     typeof campaign.id === "string" &&
     typeof campaign.name === "string" &&
     typeof campaign.startDate === "string" &&
-    datePattern.test(campaign.startDate)
+    datePattern.test(campaign.startDate) &&
+    (campaign.storeNumbers === undefined ||
+      (Array.isArray(campaign.storeNumbers) &&
+        campaign.storeNumbers.every(
+          (storeNumber) => typeof storeNumber === "string",
+        )))
   );
 };
 
@@ -51,6 +56,35 @@ export function loadCampaigns(): Campaign[] {
 
 export function saveCampaigns(campaigns: Campaign[]) {
   window.localStorage.setItem(storageKey, JSON.stringify(campaigns));
+}
+
+// @lat: [[dsw-store-locator#Campaign Store Scope#Persistence and Filtering]]
+export function getCampaignStoreNumbers(
+  campaign: Campaign | null,
+  stores: Store[],
+) {
+  return campaign?.storeNumbers ?? stores.map((store) => store.storeNumber);
+}
+
+export function normalizeCampaignStoreNumbers(
+  selectedStoreNumbers: Iterable<string>,
+  stores: Store[],
+) {
+  const selected = new Set(selectedStoreNumbers);
+  const normalized = stores
+    .map((store) => store.storeNumber)
+    .filter((storeNumber) => selected.has(storeNumber));
+
+  return normalized.length === stores.length ? undefined : normalized;
+}
+
+export function filterStoresForCampaign(
+  campaign: Campaign | null,
+  stores: Store[],
+) {
+  if (!campaign?.storeNumbers) return stores;
+  const included = new Set(campaign.storeNumbers);
+  return stores.filter((store) => included.has(store.storeNumber));
 }
 
 export function groupCampaigns(campaigns: Campaign[], today: string) {

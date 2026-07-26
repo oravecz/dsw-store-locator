@@ -1,12 +1,24 @@
 import { describe, expect, it } from "vitest";
-import type { Campaign } from "../types";
-import { groupCampaigns, selectInitialCampaign } from "./campaigns";
+import type { Campaign, Store } from "../types";
+import {
+  filterStoresForCampaign,
+  getCampaignStoreNumbers,
+  groupCampaigns,
+  normalizeCampaignStoreNumbers,
+  selectInitialCampaign,
+} from "./campaigns";
 
 const campaign = (id: string, startDate: string): Campaign => ({
   id,
   name: id,
   startDate,
 });
+
+const stores = [
+  { storeNumber: "1001" },
+  { storeNumber: "1002" },
+  { storeNumber: "1003" },
+] as Store[];
 
 describe("campaign dates", () => {
   it("groups campaigns older than seven days as archived", () => {
@@ -58,5 +70,49 @@ describe("campaign dates", () => {
         "2026-07-26",
       ),
     ).toBe("newer");
+  });
+});
+
+describe("campaign store scope", () => {
+  it("treats campaigns without a saved scope as all stores", () => {
+    const allStoreCampaign = campaign("all", "2026-07-26");
+
+    expect(getCampaignStoreNumbers(allStoreCampaign, stores)).toEqual([
+      "1001",
+      "1002",
+      "1003",
+    ]);
+    expect(filterStoresForCampaign(allStoreCampaign, stores)).toBe(stores);
+  });
+
+  it("filters stores using an explicit partial or empty scope", () => {
+    expect(
+      filterStoresForCampaign(
+        {
+          ...campaign("partial", "2026-07-26"),
+          storeNumbers: ["1002"],
+        },
+        stores,
+      ).map(({ storeNumber }) => storeNumber),
+    ).toEqual(["1002"]);
+    expect(
+      filterStoresForCampaign(
+        {
+          ...campaign("empty", "2026-07-26"),
+          storeNumbers: [],
+        },
+        stores,
+      ),
+    ).toEqual([]);
+  });
+
+  it("stores all-store selections compactly and orders partial selections", () => {
+    expect(
+      normalizeCampaignStoreNumbers(["1003", "1001", "1002"], stores),
+    ).toBeUndefined();
+    expect(normalizeCampaignStoreNumbers(["1003", "1001"], stores)).toEqual([
+      "1001",
+      "1003",
+    ]);
   });
 });
