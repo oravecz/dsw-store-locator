@@ -1,12 +1,13 @@
 const basePath = "/dsw-store-locator/";
-const cacheName = "dsw-field-guide-v1";
+const cacheName = "dsw-activations-v2";
 const appShell = [
   basePath,
   `${basePath}assets/app.js`,
   `${basePath}assets/index.css`,
-  `${basePath}icon.svg`,
+  `${basePath}apple-touch-icon.png`,
   `${basePath}icon-192.png`,
   `${basePath}icon-512.png`,
+  `${basePath}icon-maskable-512.png`,
   `${basePath}manifest.webmanifest`,
 ];
 

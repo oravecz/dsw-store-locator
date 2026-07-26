@@ -1,4 +1,4 @@
-# DSW Campaign Field Guide
+# DSW Activations
 
 A mobile-first progressive web app for finding DSW stores and tracking campaign
 issues in the field. The app is designed for GitHub Pages and works offline after
@@ -12,6 +12,7 @@ the first successful visit.
 - Lists the five closest stores using precomputed geographic coordinates.
 - Saves campaign issues, priorities, and resolution status on the current device.
 - Installs as a PWA and caches the full store directory for offline use.
+- Uses the supplied DSW wordmark for standard, maskable, and Apple touch icons.
 
 ## Data notes
 

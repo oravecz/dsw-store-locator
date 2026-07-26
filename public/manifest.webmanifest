@@ -1,6 +1,6 @@
 {
-  "name": "DSW Campaign Field Guide",
-  "short_name": "DSW Field Guide",
+  "name": "DSW Activations",
+  "short_name": "DSW Activations",
   "description": "Find DSW stores and track campaign issues in the field.",
   "theme_color": "#17120f",
   "background_color": "#f5f0e8",
@@ -19,7 +19,13 @@
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

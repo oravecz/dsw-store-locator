@@ -196,7 +196,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <a className="brand" href="#top" aria-label="DSW Campaign Field Guide">
+        <a className="brand" href="#top" aria-label="DSW Activations">
           <span className="brand-mark">DSW</span>
           <span className="brand-copy">
             <strong>Field Guide</strong>
