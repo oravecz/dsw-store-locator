@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Store } from "../types";
-import { searchStores } from "./search";
+import { filterStoresByPartialMatch, searchStores } from "./search";
 
 const store = (
   storeNumber: string,
@@ -61,6 +61,15 @@ describe("searchStores", () => {
     const results = searchStores(fixtures, "dublen sawmil");
 
     expect(results[0].mallName).toBe("Dublin-Sawmill");
+  });
+
+  it("can restrict campaign filtering to partial matches", () => {
+    expect(filterStoresByPartialMatch(fixtures, "Dublin-Sawmill")).toHaveLength(
+      1,
+    );
+    expect(filterStoresByPartialMatch(fixtures, "dublen sawmil")).toHaveLength(
+      0,
+    );
   });
 
   it("searches operational fields such as district and phone", () => {

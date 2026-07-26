@@ -49,15 +49,7 @@ export function searchStores(stores: Store[], rawQuery: string, limit = 100) {
   const query = normalize(rawQuery);
   if (!query) return stores.slice(0, limit);
 
-  const direct = stores
-    .map((store) => ({ store, rank: directRank(store, query) }))
-    .filter(({ rank }) => Number.isFinite(rank))
-    .sort(
-      (left, right) =>
-        left.rank - right.rank ||
-        left.store.mallName.localeCompare(right.store.mallName),
-    )
-    .map(({ store }) => store);
+  const direct = filterStoresByPartialMatch(stores, rawQuery, stores.length);
 
   const directIds = new Set(direct.map((store) => store.storeNumber));
   const fuzzy = new Fuse(stores, {
@@ -74,4 +66,24 @@ export function searchStores(stores: Store[], rawQuery: string, limit = 100) {
     .map(({ item }) => item);
 
   return [...direct, ...fuzzy].slice(0, limit);
+}
+
+export function filterStoresByPartialMatch(
+  stores: Store[],
+  rawQuery: string,
+  limit = 100,
+) {
+  const query = normalize(rawQuery);
+  if (!query) return stores.slice(0, limit);
+
+  return stores
+    .map((store) => ({ store, rank: directRank(store, query) }))
+    .filter(({ rank }) => Number.isFinite(rank))
+    .sort(
+      (left, right) =>
+        left.rank - right.rank ||
+        left.store.mallName.localeCompare(right.store.mallName),
+    )
+    .map(({ store }) => store)
+    .slice(0, limit);
 }

@@ -31,14 +31,17 @@ describe("campaign store selection", () => {
       expect(
         screen.getByRole("heading", { name: "Edit campaign" }),
       ).toBeInTheDocument();
-
-      fireEvent.click(
-        screen.getByRole("button", { name: "493 stores selected" }),
-      );
       const selector = screen.getByRole("region", {
         name: "Choose participating stores",
       });
       expect(within(selector).getAllByRole("checkbox")).toHaveLength(493);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Save campaign" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Cancel" }),
+      ).toBeInTheDocument();
 
       fireEvent.change(
         within(selector).getByRole("searchbox", {
@@ -59,7 +62,6 @@ describe("campaign store selection", () => {
         }),
       ).toBeInTheDocument();
 
-      fireEvent.click(within(selector).getByRole("button", { name: "Done" }));
       fireEvent.click(
         screen.getByRole("button", { name: "Save campaign" }),
       );
@@ -125,9 +127,10 @@ describe("campaign store selection", () => {
     expect(
       screen.getByRole("heading", { name: "Edit campaign" }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close campaign form" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(
+      screen.getByRole("heading", { name: "Campaign manager" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Delete 35th Birthday" }),
@@ -154,5 +157,6 @@ describe("campaign store selection", () => {
     expect(
       screen.getByRole("heading", { name: "Add campaign" }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

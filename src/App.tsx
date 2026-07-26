@@ -30,9 +30,9 @@ import {
   useState,
 } from "react";
 import {
-  CampaignFormModal,
+  CampaignEditor,
   type CampaignDraft,
-} from "./components/CampaignFormModal";
+} from "./components/CampaignEditor";
 import { CampaignManager } from "./components/CampaignManager";
 import storesData from "./data/stores.json";
 import {
@@ -141,10 +141,9 @@ function App() {
     [],
   );
   const [exportStatus, setExportStatus] = useState("");
-  const [campaignFormOpen, setCampaignFormOpen] = useState(false);
-  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(
-    null,
-  );
+  const [campaignEditorTarget, setCampaignEditorTarget] = useState<
+    "new" | string | null
+  >(null);
   const [campaignDeleteId, setCampaignDeleteId] = useState<string | null>(null);
   const [campaignManagerOpen, setCampaignManagerOpen] = useState(false);
   const [swipeBackFeedback, setSwipeBackFeedback] = useState<
@@ -175,13 +174,13 @@ function App() {
   }, [campaigns]);
 
   useEffect(() => {
-    if (!campaignFormOpen && !campaignDeleteId) return;
+    if (!campaignDeleteId) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [campaignDeleteId, campaignFormOpen]);
+  }, [campaignDeleteId]);
 
   useEffect(() => {
     setStoreHistory([]);
@@ -190,16 +189,16 @@ function App() {
     setEditingIssueId(null);
     setFormOpen(false);
     setCampaignDeleteId(null);
-    setCampaignFormOpen(false);
-    setEditingCampaignId(null);
+    setCampaignEditorTarget(null);
   }, [campaignId]);
 
   const campaign = campaigns.find((item) => item.id === campaignId) ?? null;
   const campaignPendingDelete =
     campaigns.find((item) => item.id === campaignDeleteId) ?? null;
-  const campaignFormCampaign = editingCampaignId
-    ? campaigns.find((item) => item.id === editingCampaignId) ?? null
-    : null;
+  const campaignEditorCampaign =
+    campaignEditorTarget && campaignEditorTarget !== "new"
+      ? campaigns.find((item) => item.id === campaignEditorTarget) ?? null
+      : null;
   const campaignStores = useMemo(
     () => filterStoresForCampaign(campaign, stores),
     [campaign],
@@ -400,24 +399,22 @@ function App() {
     if (editingIssueId === id) closeIssueForm();
   };
 
-  const openCampaignForm = (campaignToEdit?: Campaign) => {
-    setEditingCampaignId(campaignToEdit?.id ?? null);
-    setCampaignFormOpen(true);
+  const openCampaignEditor = (campaignToEdit?: Campaign) => {
+    setCampaignEditorTarget(campaignToEdit?.id ?? "new");
   };
 
-  const closeCampaignForm = () => {
-    setCampaignFormOpen(false);
-    setEditingCampaignId(null);
+  const closeCampaignEditor = () => {
+    setCampaignEditorTarget(null);
   };
 
   const saveCampaign = (draft: CampaignDraft) => {
-    if (campaignFormCampaign) {
+    if (campaignEditorCampaign) {
       setCampaigns((current) =>
         current.map((item) =>
-          item.id === campaignFormCampaign.id ? { ...item, ...draft } : item,
+          item.id === campaignEditorCampaign.id ? { ...item, ...draft } : item,
         ),
       );
-      if (campaignFormCampaign.id === campaignId) {
+      if (campaignEditorCampaign.id === campaignId) {
         setStoreHistory([]);
         setSelectedAttentionKeys([]);
         setAttentionFilterOpen(false);
@@ -433,7 +430,7 @@ function App() {
       setCampaignId(newCampaign.id);
     }
 
-    closeCampaignForm();
+    closeCampaignEditor();
   };
 
   const confirmDeleteCampaign = () => {
@@ -499,6 +496,18 @@ function App() {
     setCampaignManagerOpen(false);
   };
 
+  const toggleCampaignManager = () => {
+    if (campaignEditorTarget !== null) {
+      setCampaignEditorTarget(null);
+      setCampaignManagerOpen(true);
+      return;
+    }
+    setCampaignManagerOpen((current) => !current);
+  };
+
+  const campaignAdministrationOpen =
+    campaignManagerOpen || campaignEditorTarget !== null;
+
   return (
     <div className="app-shell" id="top">
       <header className="app-header">
@@ -509,16 +518,18 @@ function App() {
         <div className="header-actions">
           <button
             className={`campaign-manager-button ${
-              campaignManagerOpen ? "active" : ""
+              campaignAdministrationOpen ? "active" : ""
             }`}
             type="button"
-            onClick={() => setCampaignManagerOpen((current) => !current)}
+            onClick={toggleCampaignManager}
             aria-label={
-              campaignManagerOpen
+              campaignEditorTarget !== null
+                ? "Return to campaign manager"
+                : campaignManagerOpen
                 ? "Close campaign manager"
                 : "Open campaign manager"
             }
-            aria-pressed={campaignManagerOpen}
+            aria-pressed={campaignAdministrationOpen}
           >
             <Flag size={18} />
             <span>Campaigns</span>
@@ -532,28 +543,26 @@ function App() {
         </div>
       </header>
 
-      {campaignFormOpen && (
-        <CampaignFormModal
-          key={campaignFormCampaign?.id ?? "new-campaign"}
-          campaign={campaignFormCampaign}
+      {campaignEditorTarget !== null ? (
+        <CampaignEditor
+          key={campaignEditorCampaign?.id ?? "new-campaign"}
+          campaign={campaignEditorCampaign}
           campaigns={campaigns}
           stores={stores}
           today={today}
-          onClose={closeCampaignForm}
+          onCancel={closeCampaignEditor}
           onSave={saveCampaign}
         />
-      )}
-
-      {campaignManagerOpen ? (
+      ) : campaignManagerOpen ? (
         <CampaignManager
           activeCampaignId={campaignId}
           groups={campaignGroups}
           issues={issues}
           stores={stores}
-          onAdd={() => openCampaignForm()}
+          onAdd={() => openCampaignEditor()}
           onClose={() => setCampaignManagerOpen(false)}
           onDelete={(item) => setCampaignDeleteId(item.id)}
-          onEdit={openCampaignForm}
+          onEdit={openCampaignEditor}
           onSelect={selectCampaignFromManager}
         />
       ) : !campaign ? (
@@ -582,7 +591,7 @@ function App() {
               <button
                 className="campaign-edit-trigger"
                 type="button"
-                onClick={() => openCampaignForm(campaign)}
+                onClick={() => openCampaignEditor(campaign)}
                 aria-label={`Edit ${campaign.name}`}
               >
                 <CalendarDays size={16} />
