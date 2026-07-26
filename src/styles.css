@@ -1429,6 +1429,11 @@ footer {
 }
 
 @media (max-width: 680px) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+
   body {
     background: var(--paper);
   }
@@ -1436,6 +1441,7 @@ footer {
   .app-header {
     min-height: 62px;
     padding-block: 10px;
+    touch-action: none;
   }
 
   .header-lockup {
@@ -1461,6 +1467,32 @@ footer {
     grid-template-columns: 1fr;
     gap: 7px;
     padding: 10px 14px;
+  }
+
+  .campaign-strip.campaign-strip-collapsible {
+    position: fixed;
+    right: 0;
+    left: 0;
+    z-index: 19;
+    transform: translateY(calc(-100% - 2px));
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 5px 14px rgb(23 18 15 / 14%);
+    transition:
+      transform 180ms ease,
+      opacity 180ms ease,
+      visibility 0s linear 180ms;
+  }
+
+  .campaign-strip.campaign-strip-collapsible.revealed {
+    transform: translateY(0);
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition:
+      transform 180ms ease,
+      opacity 180ms ease;
   }
 
   .campaign-strip > label {

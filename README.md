@@ -8,6 +8,8 @@ the first successful visit.
 
 - Starts with a campaign selector and includes the **35th Birthday** campaign.
 - Adds and deletes activation campaigns with persisted titles and start dates.
+- Hides active campaign controls on mobile until the user pulls down from the
+  top of the screen.
 - Selects today’s activation or the nearest upcoming one when the app opens.
 - Groups campaigns more than seven days old under a newest-first archive.
 - Searches every store field with partial matches ranked ahead of fuzzy matches.

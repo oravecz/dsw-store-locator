@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import {
   type FormEvent,
+  type PointerEvent,
   type TouchEvent,
   useEffect,
   useMemo,
@@ -39,6 +40,7 @@ import {
   saveCampaigns,
   selectInitialCampaign,
 } from "./lib/campaigns";
+import { isCampaignDrawerPull } from "./lib/campaign-drawer";
 import { nearestStores } from "./lib/distance";
 import {
   buildIssueExport,
@@ -161,8 +163,10 @@ function App() {
   const [exportStatus, setExportStatus] = useState("");
   const [campaignFormOpen, setCampaignFormOpen] = useState(false);
   const [campaignDeleteOpen, setCampaignDeleteOpen] = useState(false);
+  const [campaignPickerRevealed, setCampaignPickerRevealed] = useState(false);
   const detailPanelRef = useRef<HTMLElement>(null);
   const swipeStartRef = useRef<SwipePoint | null>(null);
+  const campaignPullStartRef = useRef<SwipePoint | null>(null);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -207,7 +211,17 @@ function App() {
     setEditingIssueId(null);
     setFormOpen(false);
     setCampaignDeleteOpen(false);
+    setCampaignPickerRevealed(false);
   }, [campaignId]);
+
+  useEffect(() => {
+    if (!campaignPickerRevealed) return;
+    const hideOnScroll = () => {
+      if (window.scrollY > 4) setCampaignPickerRevealed(false);
+    };
+    window.addEventListener("scroll", hideOnScroll, { passive: true });
+    return () => window.removeEventListener("scroll", hideOnScroll);
+  }, [campaignPickerRevealed]);
 
   const campaign = campaigns.find((item) => item.id === campaignId) ?? null;
   const selectedStoreNumber = storeHistory.at(-1);
@@ -392,6 +406,7 @@ function App() {
     };
     setCampaigns((current) => [...current, newCampaign]);
     setCampaignId(newCampaign.id);
+    setCampaignPickerRevealed(false);
     setCampaignFormOpen(false);
     event.currentTarget.reset();
   };
@@ -446,8 +461,44 @@ function App() {
     setInstallPrompt(null);
   };
 
+  const handleCampaignPullStart = (event: PointerEvent<HTMLDivElement>) => {
+    if (
+      !campaign ||
+      campaignPickerRevealed ||
+      campaignFormOpen ||
+      campaignDeleteOpen ||
+      window.scrollY > 1
+    ) {
+      campaignPullStartRef.current = null;
+      return;
+    }
+    campaignPullStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handleCampaignPullEnd = (event: PointerEvent<HTMLDivElement>) => {
+    const start = campaignPullStartRef.current;
+    campaignPullStartRef.current = null;
+    if (
+      start &&
+      isCampaignDrawerPull(
+        start,
+        { x: event.clientX, y: event.clientY },
+        window.scrollY,
+      )
+    ) {
+      setCampaignPickerRevealed(true);
+    }
+  };
+
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onPointerDown={handleCampaignPullStart}
+      onPointerUp={handleCampaignPullEnd}
+      onPointerCancel={() => {
+        campaignPullStartRef.current = null;
+      }}
+    >
       <header className="app-header">
         <a className="brand" href="#top" aria-label="DSW Activations">
           <BrandLockup className="header-lockup" />
@@ -470,7 +521,15 @@ function App() {
         </div>
       </header>
 
-      <section className="campaign-strip" id="top">
+      <section
+        className={`campaign-strip ${
+          campaign ? "campaign-strip-collapsible" : ""
+        } ${campaignPickerRevealed ? "revealed" : ""}`}
+        id="top"
+        onFocusCapture={() => {
+          if (campaign) setCampaignPickerRevealed(true);
+        }}
+      >
         <label htmlFor="campaign">Active campaign</label>
         <div className="campaign-picker">
           <div className="select-wrap">
@@ -478,7 +537,10 @@ function App() {
             <select
               id="campaign"
               value={campaignId}
-              onChange={(event) => setCampaignId(event.target.value)}
+              onChange={(event) => {
+                setCampaignId(event.target.value);
+                setCampaignPickerRevealed(false);
+              }}
             >
               <option value="">Choose a campaign</option>
               <CampaignOptionGroups groups={campaignGroups} />
@@ -488,7 +550,10 @@ function App() {
           <button
             className="add-campaign-button"
             type="button"
-            onClick={() => setCampaignFormOpen((current) => !current)}
+            onClick={() => {
+              setCampaignPickerRevealed(false);
+              setCampaignFormOpen((current) => !current);
+            }}
             aria-label="Add campaign"
             aria-expanded={campaignFormOpen}
             aria-controls="campaign-form"
