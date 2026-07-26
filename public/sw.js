@@ -29,18 +29,27 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    Promise.all([
-      caches
-        .keys()
-        .then((keys) =>
-          Promise.all(
-            keys
-              .filter((key) => key !== cacheName)
-              .map((key) => caches.delete(key)),
-          ),
+    caches.keys().then(async (keys) => {
+      const isLegacyUpgrade = keys.some((key) =>
+        /^dsw-activations-v\d+$/.test(key),
+      );
+
+      await Promise.all([
+        Promise.all(
+          keys
+            .filter((key) => key !== cacheName)
+            .map((key) => caches.delete(key)),
         ),
-      self.clients.claim(),
-    ]),
+        self.clients.claim(),
+      ]);
+
+      if (isLegacyUpgrade) {
+        const windows = await self.clients.matchAll({ type: "window" });
+        await Promise.all(
+          windows.map((client) => client.navigate(client.url)),
+        );
+      }
+    }),
   );
 });
 
