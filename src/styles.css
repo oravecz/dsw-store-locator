@@ -134,6 +134,16 @@ a {
   text-transform: uppercase;
 }
 
+.header-lockup {
+  padding: 3px 0 0;
+  color: var(--white);
+  background: transparent;
+}
+
+.header-lockup img {
+  filter: brightness(0) invert(1);
+}
+
 .header-actions {
   display: flex;
   gap: 8px;
